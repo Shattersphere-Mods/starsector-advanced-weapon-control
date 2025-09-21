@@ -372,12 +372,19 @@ val tagIncompatibility = mapOf(
     "PrioWounded" to listOf("PrioHealthy")
 )
 
-fun isIncompatibleWithExistingTags(tag: String, existingTags: List<String>): Boolean {
+data class TagIncompatability(
+    val isIncompatible: Boolean,
+    val reason: String?
+)
+
+fun isIncompatibleWithExistingTags(tag: String, existingTags: List<String>): TagIncompatability {
     val modTag = tagNameToRegexName(tag)
     if (tagIncompatibility.containsKey(modTag)) {
-        return existingTags.map { tagNameToRegexName(it) }.any { tagIncompatibility[modTag]?.contains(it) == true }
+        return existingTags.map { tagNameToRegexName(it) }.firstOrNull { tagIncompatibility[modTag]?.contains(it) == true }?.let {
+            TagIncompatability(true, "$modTag is incompatible with $it")
+        } ?: TagIncompatability(false, null)
     }
-    return false
+    return TagIncompatability(false, null)
 }
 
 fun createTags(names: List<String>, weapon: WeaponAPI): List<WeaponAITagBase> {
