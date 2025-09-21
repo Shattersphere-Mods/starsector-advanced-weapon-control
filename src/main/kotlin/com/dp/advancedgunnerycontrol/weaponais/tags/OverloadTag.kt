@@ -8,7 +8,9 @@ import com.fs.starfarer.api.combat.WeaponAPI
 class OverloadTag(weapon: WeaponAPI) : WeaponAITagBase(weapon) {
 
     override fun isValidTarget(entity: CombatEntityAPI): Boolean {
-        return (entity as? ShipAPI)?.fluxTracker?.isOverloaded ?: false && super.isValidTarget(entity)
+        return ((entity as? ShipAPI)?.fluxTracker?.isOverloaded ?: false ||
+                (entity as? ShipAPI)?.fluxTracker?.isVenting ?: false) &&
+                super.isValidTarget(entity)
     }
 
     override fun computeTargetPriorityModifier(solution: FiringSolution): Float = 1f

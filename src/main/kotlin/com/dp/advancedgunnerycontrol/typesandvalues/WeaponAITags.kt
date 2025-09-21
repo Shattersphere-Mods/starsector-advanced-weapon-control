@@ -129,7 +129,7 @@ val tagTooltips = mapOf(
         )
     } be ignored (configurable in settings)",
     "NoMissiles" to "Weapon won't target missiles.",
-    "Overloaded" to "Weapon will only target and fire at overloaded ships.",
+    "Overloaded" to "Weapon will only target and fire at overloaded or venting ships.",
     "ShieldsOff" to "Simplified version of AvoidShields. Will only fire at targets that have no shields or have shields turned off.",
     "Merge" to "Press [${Keyboard.getKeyName(Settings.mergeHotkey())}] to merge all weapons with this tag into current weapon group. " +
             "\nFor player controlled ship only! Press [${Keyboard.getKeyName(Settings.mergeHotkey())}] again to undo." +
