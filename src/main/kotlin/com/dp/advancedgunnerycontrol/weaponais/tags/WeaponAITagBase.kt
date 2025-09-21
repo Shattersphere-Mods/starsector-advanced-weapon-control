@@ -24,8 +24,23 @@ abstract class WeaponAITagBase(protected val weapon: WeaponAPI) {
     open fun addFarAwayTargets(): List<CombatEntityAPI> = emptyList()
 
     abstract fun computeTargetPriorityModifier(solution: FiringSolution): Float
+
+    /**
+     * weapon will fire if ALL tags return true. So, by default, tags should return true
+     */
     abstract fun shouldFire(solution: FiringSolution): Boolean
+
+    /**
+     * if ANY tag returns true, custom AI can be used. If all tags return false, only the base AI will run and the only
+     * thing that tags can do is to prevent the weapon from firing.
+     * So, tags should return true if they want to interfere with target selection/targeting in any way.
+     * Tags should return false, if they only do auxiliary stuff or only affect the shouldFire-decision.
+     */
     abstract fun isBaseAiOverridable(): Boolean
+
+    /**
+     * if any tag returns true here, the weapon will hold fire if debris is blocking the shot
+     */
     abstract fun avoidDebris(): Boolean
 
     open fun isBaseAiValid(entity: CombatEntityAPI): Boolean {

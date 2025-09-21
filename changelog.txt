@@ -1,5 +1,10 @@
 === For Starsector 0.98a ===
 
+- 0.20.0
+feat: overloaded tag now also considers venting targets as valid
+fix: clarify what TgtShields tag means
+feat: add DoNotShoot tag
+
 - 0.19.1
 hotfix: fix issue where AGC would reset the AI of ships to default for essentially no reason
 

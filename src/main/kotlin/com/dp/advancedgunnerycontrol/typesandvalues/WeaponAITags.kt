@@ -63,7 +63,9 @@ val tagTooltips = mapOf(
         )
     } be ignored (configurable in settings)" +
             "\nNo targeting restrictions.",
-    "TargetShields" to "Weapon will prioritize shooting shields. Will stop firing against enemies with very high flux. \nShields of fighters will ${
+    "TargetShields" to "Weapon will prioritize targeting shields. Will stop firing against enemies with very high flux or no shields." +
+            "\nWill target, but NOT fire against unshielded targets. (Combine with e.g. ForceF(Flx<50%) to still shoot at unshielded)" +
+            " \nShields of fighters will ${
         mapBooleanToSpecificString(
             Settings.ignoreFighterShields(),
             "",
@@ -141,7 +143,8 @@ val tagTooltips = mapOf(
     "PrioHealthy" to "Prioritize targets that have high hull level",
     "BlockBeams" to "Will shoot at enemies that are shooting this ship with beams, even when out of range. Intended mainly for the SVC Ink Spitter gun.",
     "CustomAI" to "This tag does nothing but prevent the vanilla AI from doing anything. I use this for devastators to prevent vanilla jank.",
-    "PrioDense" to "Prioritize target rich areas. Weapon will prioritize shooting at targets that are big and/or have lots of other targets nearby. Good for AoE weapons."
+    "PrioDense" to "Prioritize target rich areas. Weapon will prioritize shooting at targets that are big and/or have lots of other targets nearby. Good for AoE weapons.",
+    "DoNotShoot" to "Weapon will not fire (unless paired with a ForceFire-tag)"
 )
 
 fun getTagTooltip(tag: String): String {
@@ -248,6 +251,7 @@ fun createTag(name: String, weapon: WeaponAPI): WeaponAITagBase? {
         "BlockBeams" -> InterdictBeamsTag(weapon)
         "CustomAI" -> CustomAITag(weapon)
         "PrioDense" -> PrioritizeDense(weapon)
+        "DoNotShoot" -> DoNotShootTag(weapon)
         else -> {
             unknownTagWarnCounter++
             when {
