@@ -31,7 +31,7 @@
                 "Opportunist", "Panic(H<25%)", "Range<60%", "Range<80%",
                 "ConserveAmmo", "CnsrvPDAmmo",
                 "BigShips", "SmallShips",
-                "Overloaded", "LowRoF(200%)", "CustomAI", "PrioDense"
+                "Overloaded", "LowRoF(200%)", "CustomAI", "PrioDense", "DoNotShoot"
                 ]  
    
    ,"classicTagList" : [

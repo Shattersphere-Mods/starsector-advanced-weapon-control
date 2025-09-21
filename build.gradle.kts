@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 object Variables {
     // Note: On Linux, if you installed Starsector into ~/something, you have to write /home/<user>/ instead of ~/
     val starsectorDirectory = System.getenv("STARSECTOR_DIRECTORY") ?: "/home/jannes/games/starsector"
-    val modVersion = "1.19.1"
+    val modVersion = "1.20.0"
     val jarFileNameBase = "AdvancedGunneryControl-$modVersion"
     val jarFileName = "$jarFileNameBase.jar"
     val sourceJarFileName = "$jarFileNameBase-sources.jar"
@@ -469,7 +469,7 @@ tasks {
     }
 
     register("create-everything"){
-        dependsOn(jar, kotlinSourcesJar, "write-settings-file", "create-metadata-files", "javadocJar")
+        dependsOn(jar, kotlinSourcesJar, "write-settings-file", "create-metadata-files")
     }
 
     // If enabled, will copy your mod to the /mods directory when run (and whenever gradle syncs).

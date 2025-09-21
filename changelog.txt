@@ -3,7 +3,7 @@
 - 0.20.0
 feat: overloaded tag now also considers venting targets as valid
 fix: clarify what TgtShields tag means
-feat: add DoNotShoot tag
+feat: add DoNotShoot tag (complete tag list)
 feat: unavailable tags now say in the tooltip why they are unavailable (combat gui)
 fluff: changed default value of Spam System Prevents Deactivation to true, as that is probably the expected behavior for most people
 feat: Change StayAway ship mode, such that it tries to keep the longest range weapon/fighter in range
