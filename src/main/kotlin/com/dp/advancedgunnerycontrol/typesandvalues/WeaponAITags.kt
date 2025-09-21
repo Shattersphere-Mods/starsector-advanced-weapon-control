@@ -64,7 +64,7 @@ val tagTooltips = mapOf(
     } be ignored (configurable in settings)" +
             "\nNo targeting restrictions.",
     "TargetShields" to "Weapon will prioritize targeting shields. Will stop firing against enemies with very high flux or no shields." +
-            "\nWill target, but NOT fire against unshielded targets. (Combine with e.g. ForceF(Flx<50%) to still shoot at unshielded)" +
+            "\nCan target, but NOT fire against unshielded targets. (Combine with e.g. ForceF(Flx<50%) to still shoot at unshielded targets)" +
             " \nShields of fighters will ${
         mapBooleanToSpecificString(
             Settings.ignoreFighterShields(),

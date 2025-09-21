@@ -54,7 +54,8 @@ val detailedShipModeDescriptions = mapOf(
     ShipModes.NO_SYSTEM to "Ship will not use its ship system.",
     ShipModes.SHIELDS_UP to "Ship will not turn its shields off while flux < 90% and enemies are within weapon range.",
     ShipModes.SHIELDS_UP_PLUS to "Like shields up, but until 100% flux.",
-    ShipModes.STAY_AWAY to "Will move away backwards from enemies that get too close",
+    ShipModes.STAY_AWAY to "Will move away backwards from enemies that get too close.\n" +
+            "Will try to keep the longest range weapon/fighter in range, but keep a distance of at least 1500.",
     ShipModes.FAR_AWAY to "EXPERIMENTAL! Will try to stay far away from all enemies." +
             "\nWhen relevant enemy ships are nearby, the ship will analyze the enemy ship density and select a point " +
             "where there are fewest enemies both at the point and on the route to the point and try to move there.",
