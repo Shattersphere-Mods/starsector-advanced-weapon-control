@@ -153,5 +153,3 @@ gradle-app.setting
 .run
 Settings.editme.backup
 local.properties
-Public Release/
-.agent-deploy/
