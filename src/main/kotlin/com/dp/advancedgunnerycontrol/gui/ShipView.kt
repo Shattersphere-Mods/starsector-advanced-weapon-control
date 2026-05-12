@@ -2167,7 +2167,7 @@ class ShipView(
     ) {
         var y = startY
         val definition = state.definition ?: return
-        EditableWeaponTagDefinitions.visibleParameters(definition).forEach { parameter ->
+        EditableWeaponTagDefinitions.visibleParameters(definition, state.draftValues).forEach { parameter ->
             val disabledReason = disabledEditParameterReason(state.draftValues, parameter)
             val tooltip = editParameterTooltip(definition, parameter, disabledReason)
             when (parameter) {

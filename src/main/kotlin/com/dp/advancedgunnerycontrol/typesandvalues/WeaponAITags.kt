@@ -35,12 +35,14 @@ private const val DAMAGE_TYPE_EXCLUSION_LIST_PATTERN = "(?:K|HE|F|E|B|M|P)(?:,(?
 private const val OPTIONAL_DAMAGE_TYPE_EXCLUSION_PATTERN = "(?:,Ignore<($DAMAGE_TYPE_EXCLUSION_LIST_PATTERN)>)?"
 private const val SIMPLE_DAMAGE_TYPE_EXCLUSION_PATTERN = "\\(Ignore<($DAMAGE_TYPE_EXCLUSION_LIST_PATTERN)>\\)"
 
-val holdTotalFluxRegex = Regex("HoldFire\\(TF>(\\d+)%$OPTIONAL_TOTAL_FLUX_CAP_PATTERN\\)")
+val holdTotalFluxRegex = Regex("HoldFire\\(TF>(\\d+)%\\)")
+private val holdTotalFluxWithCapCleanupRegex = Regex("HoldFire\\(TF>(\\d+)%,TF<(\\d+)%\\)")
 val holdTotalFluxAliasRegex = Regex("Hold\\(TF>(\\d+)%\\)")
 val holdTotalFluxLegacyRegex = Regex("Hold(?:FT)?\\($LEGACY_TOTAL_FLUX_TOKEN>(\\d+)%\\)")
 val holdSoftFluxRegex = Regex("HoldFire\\(SF>(\\d+)%$OPTIONAL_TOTAL_FLUX_CAP_PATTERN$OPTIONAL_HOLD_SOFT_FLUX_BEAM_WINDOW_PATTERN\\)")
 val holdSoftFluxAliasRegex = Regex("Hold\\(SF>(\\d+)%\\)")
-val holdHardFluxRegex = Regex("HoldFire\\(HF>(\\d+)%$OPTIONAL_TOTAL_FLUX_CAP_PATTERN\\)")
+val holdHardFluxRegex = Regex("HoldFire\\(HF>(\\d+)%\\)")
+private val holdHardFluxWithCapCleanupRegex = Regex("HoldFire\\(HF>(\\d+)%,TF<(\\d+)%\\)")
 val holdHardFluxAliasRegex = Regex("Hold\\(HF>(\\d+)%\\)")
 val holdSoftFluxLegacyRegex = Regex("HoldSFT\\($LEGACY_TOTAL_FLUX_TOKEN>(\\d+)%\\)")
 val forceFireTotalFluxRegex = Regex("Force\\(TF<(\\d+)%$OPTIONAL_TOTAL_FLUX_CAP_PATTERN\\)")
@@ -653,12 +655,14 @@ private fun canonicalizeKnownWeaponTagName(tag: String): String? {
     if (tag in canonicalSimpleWeaponTags) return tag
     when {
         holdTotalFluxRegex.matches(tag) -> return tag
+        holdTotalFluxWithCapCleanupRegex.matches(tag) -> return "HoldFire(TF>${extractRegexThresholdAsPercentageString(holdTotalFluxWithCapCleanupRegex, tag)})"
         holdTotalFluxAliasRegex.matches(tag) -> return "HoldFire(TF>${extractRegexThresholdAsPercentageString(holdTotalFluxAliasRegex, tag)})"
         holdTotalFluxLegacyRegex.matches(tag) -> return "HoldFire(TF>${extractRegexThresholdAsPercentageString(holdTotalFluxLegacyRegex, tag)})"
         holdSoftFluxRegex.matches(tag) -> return tag
         holdSoftFluxAliasRegex.matches(tag) -> return "HoldFire(SF>${extractRegexThresholdAsPercentageString(holdSoftFluxAliasRegex, tag)})"
         holdSoftFluxLegacyRegex.matches(tag) -> return "HoldFire(SF>${extractRegexThresholdAsPercentageString(holdSoftFluxLegacyRegex, tag)})"
         holdHardFluxRegex.matches(tag) -> return tag
+        holdHardFluxWithCapCleanupRegex.matches(tag) -> return "HoldFire(HF>${extractRegexThresholdAsPercentageString(holdHardFluxWithCapCleanupRegex, tag)})"
         holdHardFluxAliasRegex.matches(tag) -> return "HoldFire(HF>${extractRegexThresholdAsPercentageString(holdHardFluxAliasRegex, tag)})"
     }
 
@@ -968,7 +972,7 @@ private fun withEditableParameterSummary(canonicalTag: String, tooltip: String):
     val parsed = EditableWeaponTagDefinitions.parse(canonicalTag) ?: return tooltip
     val definition = EditableWeaponTagDefinitions.definitionById(parsed.definitionId) ?: return tooltip
     val defaults = EditableWeaponTagDefinitions.defaultValuesFor(definition)
-    val rows = EditableWeaponTagDefinitions.visibleParameters(definition).mapNotNull { parameter ->
+    val rows = EditableWeaponTagDefinitions.visibleParameters(definition, parsed.parameterValues).mapNotNull { parameter ->
         if (!showEditableParameterSummaryRow(definition, parsed, parameter)) return@mapNotNull null
         val value = parsed.parameterValues[parameter.id] ?: defaults[parameter.id] ?: return@mapNotNull null
         editableParameterSummaryRow(parameter, value)

@@ -239,6 +239,20 @@ object EditableWeaponTagDefinitions {
     fun visibleParameters(definition: EditableWeaponTagDefinition): List<EditableTagParameterDefinition> =
         definition.parameters.filter(::isParameterVisible)
 
+    fun visibleParameters(
+        definition: EditableWeaponTagDefinition,
+        parameterValues: Map<String, String>,
+    ): List<EditableTagParameterDefinition> =
+        visibleParameters(definition).filter { parameter ->
+            if (parameter.id == PARAM_TOTAL_FLUX_CAP) {
+                val metric = parameterValues[PARAM_FLUX_METRIC]
+                    ?: defaultValuesFor(definition)[PARAM_FLUX_METRIC]
+                    ?: return@filter true
+                return@filter totalFluxCapAppliesToMetric(definition, metric)
+            }
+            true
+        }
+
     fun displayName(tag: String): String {
         val canonicalTag = canonicalizeWeaponTagName(tag)
         val parsed = parse(canonicalTag) ?: return canonicalTag
@@ -272,6 +286,7 @@ object EditableWeaponTagDefinitions {
         val comparator = if (parsed.definitionId == "force_fire_flux_threshold") "<" else ">"
         val defaultCap = defaultValuesFor(definition)[PARAM_TOTAL_FLUX_CAP]
         val cap = parsed.parameterValues[PARAM_TOTAL_FLUX_CAP]
+            ?.takeIf { totalFluxCapAppliesToMetric(definition, metric) }
             ?.takeIf { defaultCap == null || it != defaultCap }
             ?.let { ",TF<$it%" }
             .orEmpty()
@@ -430,6 +445,13 @@ object EditableWeaponTagDefinitions {
     private fun totalFluxCapDefaultPercent(): Int =
         settingsPercent(Settings.softFluxTotalFluxCap(), min = 1, max = 100)
 
+    private fun totalFluxCapAppliesToMetric(
+        definition: EditableWeaponTagDefinition,
+        metric: String,
+    ): Boolean {
+        return definition.id != "hold_fire_flux_threshold" || metric == "SF"
+    }
+
     private fun fluxConditionDefinitions(): List<EditableWeaponTagDefinition> = listOf(
         fluxThresholdDefinition(
             id = "hold_fire_flux_threshold",
@@ -443,6 +465,7 @@ object EditableWeaponTagDefinitions {
             defaultThreshold = 25,
             exclusivityPrefix = "HoldFire",
             includeTotalFluxCap = true,
+            totalFluxCapAllowedMetricIds = setOf("SF"),
             includeRecentBeamException = true,
         ),
         fluxThresholdDefinition(
@@ -710,6 +733,7 @@ object EditableWeaponTagDefinitions {
         defaultThreshold: Int,
         exclusivityPrefix: String,
         includeTotalFluxCap: Boolean = false,
+        totalFluxCapAllowedMetricIds: Set<String> = setOf("TF", "SF", "HF"),
         includeRecentBeamException: Boolean = false,
         targetShieldThresholdComparator: String? = null,
         defaultTargetShieldThresholdProvider: (() -> Int)? = null,
@@ -821,9 +845,13 @@ object EditableWeaponTagDefinitions {
                     null
                 }
                 val totalFluxCap = if (includeTotalFluxCap) {
-                    match.groupValues.getOrNull(nextGroupIndex++)
+                    val parsedCap = match.groupValues.getOrNull(nextGroupIndex++)
                         ?.takeIf { it.isNotBlank() }
-                        ?: totalFluxCapDefaultPercent().toString()
+                    if (metric in totalFluxCapAllowedMetricIds) {
+                        parsedCap ?: totalFluxCapDefaultPercent().toString()
+                    } else {
+                        null
+                    }
                 } else {
                     null
                 }
@@ -878,6 +906,7 @@ object EditableWeaponTagDefinitions {
                 val beamWindowText = values[PARAM_BEAM_WINDOW] ?: formatDecimalTagNumber(HOLD_FIRE_BEAM_WINDOW_DEFAULT_SECONDS)
                 val damageTypeExclusions = damageTypeExclusionsFromValues(values)
                 val errors = mutableListOf<EditableTagValidationError>()
+                val totalFluxCapApplies = includeTotalFluxCap && metric in totalFluxCapAllowedMetricIds
 
                 if (metric !in fluxMetricOptions.map { it.id }) {
                     errors += EditableTagValidationError(PARAM_FLUX_METRIC, "Choose one of TF, SF, or HF.")
@@ -891,7 +920,7 @@ object EditableWeaponTagDefinitions {
                     )
                 }
                 val totalFluxCap = totalFluxCapText.toIntOrNull()
-                if (includeTotalFluxCap && (totalFluxCap == null || totalFluxCap !in 1..100)) {
+                if (totalFluxCapApplies && (totalFluxCap == null || totalFluxCap !in 1..100)) {
                     errors += EditableTagValidationError(
                         PARAM_TOTAL_FLUX_CAP,
                         "Enter a whole number from 1 to 100."
@@ -932,7 +961,11 @@ object EditableWeaponTagDefinitions {
                     } else {
                         ""
                     }
-                    val capSuffix = if (includeTotalFluxCap && totalFluxCap != currentDefaultTotalFluxCap) {
+                    val capSuffix = if (
+                        totalFluxCapApplies &&
+                        totalFluxCap != null &&
+                        totalFluxCap != currentDefaultTotalFluxCap
+                    ) {
                         ",TF<$totalFluxCap%"
                     } else {
                         ""

@@ -483,15 +483,13 @@ internal class CustomListModalStateController(
     }
 
     fun resetDraftValuesToDefaults(definition: EditableWeaponTagDefinition) {
-        val current = draftValuesProvider?.invoke().orEmpty()
-        val values = EditableWeaponTagDefinitions.defaultValuesFor(definition).toMutableMap()
-        listOf(
-            CustomListDraftKeys.Edit.KIND,
-            CustomListDraftKeys.Edit.RETURN,
-            CustomListDraftKeys.Edit.PENDING_ADDITION,
-            CustomListDraftKeys.Edit.FIXED_TAG,
-        ).forEach { key ->
-            current[key]?.let { values[key] = it }
+        val values = draftValuesProvider?.invoke()?.toMutableMap() ?: mutableMapOf()
+        for (parameter in definition.parameters) {
+            values.remove(parameter.id)
+        }
+        val defaults = EditableWeaponTagDefinitions.defaultValuesFor(definition)
+        for (parameter in definition.parameters) {
+            defaults[parameter.id]?.let { value -> values[parameter.id] = value }
         }
         writeDraftValues(values)
     }
