@@ -220,11 +220,6 @@ class DirectShipEditorPanel(
                 beforeBuild = { view ->
                     shipView = view
                 },
-                afterBuild = { view ->
-                    if (view.hasConfirmationModal()) {
-                        optionsController.suppressButtonHover()
-                    }
-                },
             )
             contentPanel = content.panel
             shipView = content.view
@@ -412,7 +407,8 @@ class DirectShipEditorPanel(
 
     private fun suppressSuggestedNonModalButtonHover() {
         if (suggestedNonModalSuppressionSnapshot != null) return
-        suggestedNonModalSuppressionSnapshot = suggestedActionButtons.suppressCampaignButtonHoverSnapshot()
+        suggestedActionButtons.forEach { button -> button.syncVisualCheckedToActive() }
+        suggestedNonModalSuppressionSnapshot = suppressRegisteredCampaignButtonHoverSnapshot()
     }
 
     private fun openSuggestedConfirmationModalOrRebuild() {

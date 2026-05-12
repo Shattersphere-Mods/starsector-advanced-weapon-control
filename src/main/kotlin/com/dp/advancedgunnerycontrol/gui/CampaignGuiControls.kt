@@ -11,6 +11,8 @@ import com.fs.starfarer.api.ui.CustomPanelAPI
 import com.fs.starfarer.api.ui.TooltipMakerAPI
 import com.fs.starfarer.api.ui.TooltipMakerAPI.TooltipLocation
 import com.fs.starfarer.api.util.Misc
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.max
 import kotlin.math.min
 
@@ -55,28 +57,34 @@ class CampaignButtonSuppressionSnapshot private constructor(
     private val states: List<State>,
 ) {
     private data class State(
-        val control: ButtonBase<*>,
+        val button: ButtonAPI,
         val wasEnabled: Boolean,
     )
 
     fun restore() {
         states.forEach { state ->
-            state.control.button.isEnabled = state.wasEnabled
+            state.button.isEnabled = state.wasEnabled
             if (state.wasEnabled) {
-                restoreCampaignButtonSounds(state.control.button)
+                restoreCampaignButtonSounds(state.button)
             } else {
-                muteCampaignButtonSounds(state.control.button)
-                state.control.button.setShowTooltipWhileInactive(true)
+                muteCampaignButtonSounds(state.button)
+                state.button.setShowTooltipWhileInactive(true)
             }
         }
     }
 
     companion object {
         fun suppress(controls: Iterable<ButtonBase<*>>): CampaignButtonSuppressionSnapshot {
-            val states = controls.map { control ->
-                State(control = control, wasEnabled = control.button.isEnabled)
+            controls.forEach { control -> control.syncVisualCheckedToActive() }
+            return suppressButtons(controls.map { control -> control.button })
+        }
+
+        fun suppressButtons(buttons: Iterable<ButtonAPI>): CampaignButtonSuppressionSnapshot {
+            val uniqueButtons = uniqueCampaignButtons(buttons)
+            val states = uniqueButtons.map { button ->
+                State(button = button, wasEnabled = button.isEnabled)
             }
-            controls.forEach { control -> control.suppressCampaignButtonHover() }
+            uniqueButtons.forEach(::suppressCampaignButtonHover)
             return CampaignButtonSuppressionSnapshot(states)
         }
     }
@@ -84,6 +92,15 @@ class CampaignButtonSuppressionSnapshot private constructor(
 
 fun Iterable<ButtonBase<*>>.suppressCampaignButtonHoverSnapshot(): CampaignButtonSuppressionSnapshot {
     return CampaignButtonSuppressionSnapshot.suppress(this)
+}
+
+fun Iterable<ButtonAPI>.suppressCampaignRawButtonHoverSnapshot(): CampaignButtonSuppressionSnapshot {
+    return CampaignButtonSuppressionSnapshot.suppressButtons(this)
+}
+
+private fun uniqueCampaignButtons(buttons: Iterable<ButtonAPI>): List<ButtonAPI> {
+    val seen = Collections.newSetFromMap(IdentityHashMap<ButtonAPI, Boolean>())
+    return buttons.filter { button -> seen.add(button) }
 }
 
 fun ButtonBase<*>.applyDisabledCampaignButtonTemplate(
@@ -97,10 +114,14 @@ fun ButtonBase<*>.applyDisabledCampaignButtonTemplate(
 
 fun ButtonBase<*>.suppressCampaignButtonHover(): ButtonBase<*> {
     syncVisualCheckedToActive()
-    disable()
+    suppressCampaignButtonHover(button)
+    return this
+}
+
+fun suppressCampaignButtonHover(button: ButtonAPI) {
+    button.isEnabled = false
     muteCampaignButtonSounds(button)
     button.setShowTooltipWhileInactive(false)
-    return this
 }
 
 fun ButtonAPI.bindCampaignButtonListener(
@@ -112,6 +133,21 @@ fun ButtonAPI.bindCampaignButtonListener(
         invokeMethodByName("setListener", this, it, narrativeContext = narrativeContext)
     }
     return this
+}
+
+private val registeredCampaignButtons = mutableListOf<ButtonAPI>()
+
+fun registerCampaignButton(button: ButtonAPI): ButtonAPI {
+    registeredCampaignButtons.add(button)
+    return button
+}
+
+fun clearRegisteredCampaignButtons() {
+    registeredCampaignButtons.clear()
+}
+
+fun suppressRegisteredCampaignButtonHoverSnapshot(): CampaignButtonSuppressionSnapshot {
+    return registeredCampaignButtons.suppressCampaignRawButtonHoverSnapshot()
 }
 
 // Legacy checkbox helpers
@@ -134,6 +170,7 @@ fun addLegacyAgcTooltipCheckbox(
         height,
         pad
     )
+    registerCampaignButton(button)
     if (!tooltipText.isNullOrBlank()) {
         tooltip.addTooltipToPrevious(
             AGCGUI.makeTooltip(tooltipText),
@@ -447,6 +484,7 @@ fun addStyledCampaignButtonShell(
         height,
         0f
     )
+    registerCampaignButton(button)
     if (!tooltip.isNullOrBlank()) {
         inner.addTooltipToPrevious(
             AGCGUI.makeTooltip(tooltip),
@@ -874,6 +912,7 @@ fun addCollapsibleCampaignPanelHeading(
         headingHeight,
         0f
     )
+    registerCampaignButton(button)
     element.addTooltipToPrevious(
         AGCGUI.makeTooltip("${if (collapsed) "Expand" else "Collapse"} $title panel."),
         TooltipLocation.BELOW

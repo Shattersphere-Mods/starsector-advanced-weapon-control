@@ -13,6 +13,7 @@ import com.dp.advancedgunnerycontrol.gui.CampaignTooltipCopy
 import com.dp.advancedgunnerycontrol.gui.addCampaignPanelHeading
 import com.dp.advancedgunnerycontrol.gui.addAgcText
 import com.dp.advancedgunnerycontrol.gui.addTemplatedCampaignMomentaryActionButton
+import com.dp.advancedgunnerycontrol.gui.clearRegisteredCampaignButtons
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.input.InputEventAPI
@@ -497,6 +498,7 @@ class SuggestedTagGuiView(
         val panel = contentPanel ?: return false
         leftColumnPanel?.let(panel::removeComponent)
         weaponPanelsPanel?.let(panel::removeComponent)
+        clearRegisteredCampaignButtons()
         buttons.clear()
         tagListRenderer.clear()
         scrollDirty = false

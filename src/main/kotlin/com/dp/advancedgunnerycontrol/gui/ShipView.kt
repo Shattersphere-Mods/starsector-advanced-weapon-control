@@ -1157,7 +1157,6 @@ class ShipView(
             closeExternalConfirmationModalTargeted()
         }
         renderExternalConfirmationModal(panel)
-        externalBindings.suppressOptionHover?.invoke()
     }
 
     private fun renderExternalConfirmationModal(panel: CustomPanelAPI) {
@@ -1166,6 +1165,7 @@ class ShipView(
             return
         }
         val firstModalButtonIndex = buttons.size
+        suppressNonModalButtonHover(firstModalButtonIndex)
         val modal = renderCampaignConfirmationModal(
             root = panel,
             request = request,
@@ -1185,13 +1185,13 @@ class ShipView(
                 closeExternalConfirmationModalTargeted()
             },
         )
-        suppressNonModalButtonHover(firstModalButtonIndex)
         externalConfirmationButtonEndIndex = buttons.size
     }
 
     private fun renderPresetActionModal(panel: CustomPanelAPI, groupIndex: Int, state: PresetControlState) {
         val request = presetConfirmationRequest(groupIndex, state)
         val firstModalButtonIndex = buttons.size
+        suppressNonModalButtonHover(firstModalButtonIndex)
         val overwriteWarning = CampaignSaveLoadPanelRenderer.requiresOverwriteWarning(state)
         val accentColor = if (overwriteWarning) CampaignGuiStyle.ALERT_RED_COLOR else CampaignGuiStyle.LOAD_BUTTON_HOVER_COLOR
         val titleColor = if (overwriteWarning) CampaignGuiStyle.ALERT_RED_COLOR else CampaignGuiStyle.LOAD_BUTTON_HOVER_COLOR
@@ -1256,7 +1256,6 @@ class ShipView(
                 tooltip = "Cancel this preset action.",
             ) { request.onCancel() }
         )
-        suppressNonModalButtonHover(firstModalButtonIndex)
         presetModalButtonEndIndex = buttons.size
     }
 
@@ -1272,7 +1271,6 @@ class ShipView(
         } else {
             renderPresetActionModal(panel, groupIndex, normalized)
         }
-        externalBindings.suppressOptionHover?.invoke()
     }
 
     private fun refreshPresetActionModal(groupIndex: Int, state: PresetControlState) {
@@ -1472,6 +1470,7 @@ class ShipView(
         val ship = activeShip ?: return
         val context = activePersistenceContext ?: return
         val firstModalButtonIndex = buttons.size
+        suppressNonModalButtonHover(firstModalButtonIndex)
         customListModalScrollRegion = null
         renderingCustomListModal = true
         customListModalRefreshPending = false
@@ -1537,8 +1536,6 @@ class ShipView(
             CustomListModalMode.DEBUG_COLORS -> renderDebugColorModal(dialog, dialogWidth, dialogHeight)
             CustomListModalMode.RENAME_LOADOUT -> renderLoadoutRenameModal(dialog, dialogWidth, dialogHeight)
         }
-        suppressNonModalButtonHover(firstModalButtonIndex)
-        externalBindings.suppressOptionHover?.invoke()
         customListModalButtonEndIndex = buttons.size
         renderingCustomListModal = false
         if (customListModalRefreshPending) {
@@ -3061,10 +3058,12 @@ class ShipView(
         val start = startIndex.coerceIn(0, buttons.size)
         val end = endIndex.coerceIn(start, buttons.size)
         // Modal input consumption runs after Starsector has already had a
-        // chance to update hover state. Disable and mute covered AGC buttons,
-        // but keep a snapshot so targeted modal close does not need a full
-        // editor rebuild just to make the background buttons usable again.
-        nonModalSuppressionSnapshot = buttons.subList(start, end).suppressCampaignButtonHoverSnapshot()
+        // chance to update hover state. Disable and mute all already-rendered
+        // AGC buttons through the shared registry, not just this view's
+        // ButtonBase list, because options and raw helper buttons can live in
+        // separate collections.
+        buttons.subList(start, end).forEach { control -> control.syncVisualCheckedToActive() }
+        nonModalSuppressionSnapshot = suppressRegisteredCampaignButtonHoverSnapshot()
     }
 
     private fun restoreSuppressedNonModalButtonHover() {
@@ -3247,6 +3246,7 @@ class ShipView(
         optionsBuildPanel = buildOptionsPanel
         rootPanel = panel
         nonModalSuppressionSnapshot = null
+        clearRegisteredCampaignButtons()
         buttons.clear()
         weaponGroupTagListRenderer.clear()
         weaponGroupPanelsByIndex.clear()

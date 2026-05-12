@@ -12,7 +12,7 @@ import com.dp.advancedgunnerycontrol.gui.addRenderedConfirmationModalButtons
 import com.dp.advancedgunnerycontrol.gui.clearRenderedConfirmationModalButtons
 import com.dp.advancedgunnerycontrol.gui.processCampaignButtonRightClickInput
 import com.dp.advancedgunnerycontrol.gui.replaceCampaignContentWithErrorFallback
-import com.dp.advancedgunnerycontrol.gui.suppressCampaignButtonHoverSnapshot
+import com.dp.advancedgunnerycontrol.gui.suppressRegisteredCampaignButtonHoverSnapshot
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.campaign.BaseCustomUIPanelPlugin
@@ -214,7 +214,8 @@ class SuggestedTagGui : InteractionDialogPlugin {
 
         private fun suppressNonModalButtonHover() {
             if (nonModalSuppressionSnapshot != null) return
-            nonModalSuppressionSnapshot = actionButtons.suppressCampaignButtonHoverSnapshot()
+            actionButtons.forEach { button -> button.syncVisualCheckedToActive() }
+            nonModalSuppressionSnapshot = suppressRegisteredCampaignButtonHoverSnapshot()
         }
 
         private fun openConfirmationModalOrRebuild() {

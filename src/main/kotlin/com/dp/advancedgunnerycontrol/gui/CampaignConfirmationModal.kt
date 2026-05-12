@@ -432,6 +432,7 @@ internal fun addTransparentCampaignInputShield(
         height,
         0f
     )
+    registerCampaignButton(button)
     muteCampaignButtonSounds(button)
     button.setShowTooltipWhileInactive(false)
     parent.addUIElement(shield).inTL(x, y)

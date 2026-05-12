@@ -127,11 +127,6 @@ class CampaignShipEditorPanelPlugin(
                 beforeBuild = { view ->
                     shipView = view
                 },
-                afterBuild = { view ->
-                    if (view.hasConfirmationModal()) {
-                        optionsPanelController.suppressButtonHover()
-                    }
-                },
             )
             contentPanel = content.panel
             shipView = content.view
