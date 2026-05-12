@@ -12,13 +12,20 @@ object Values {
     const val CUSTOM_SHIP_DATA_DO_NOT_OVERWRITE_AI_KEY = "AGC_doNotReplaceShipAI"
     const val COOP_MOD_SHIP_AI_NAME = "data.scripts.coopcombat.CoOpShipAI"
     const val CUSTOM_ENGINE_TAGS_KEY = "AGC_AutoAdvanceTags"
+    const val CUSTOM_ENGINE_FOCUSED_TARGET_CACHE_KEY = "AGC_FocusedTargetCache"
     const val CUSTOM_SHIP_DATA_OPTIONS_TO_APPLY_KEY = "AGC_ApplyCustomOptions"
     const val CUSTOM_SHIP_DATA_SHIP_MODES_TO_APPLY_KEY = "AGC_ApplyCustomShipModes"
     const val CUSTOM_SHIP_DATA_OPTIONS_HAVE_BEEN_APPLIED_KEY = "AGC_CustomOptionsHaveBeenApplied"
     const val CUSTOM_ENGINE_AGC_PRESENT_KEY = "AGC_Present"
+    const val CUSTOM_SHIP_DATA_DISABLED_TAG_GROUPS_KEY = "AGC_DisabledTagGroups"
     const val distToAngularDistEvaluationFactor = 1f / 400f
     const val CUSTOM_SUGGESTED_TAG_JSON_FILE_NAME = "AGC_customSuggestedTags.json"
-    const val WEAPON_COMP_GLOBAL_TAGS_JSON_FILE_NAME = "AGC_weaponCompGlobalTags.json"
+    const val WEAPON_COMP_TAG_PRESETS_JSON_FILE_NAME = "AGC_weaponCompTagPresets.json"
+    const val DEBUG_GUI_COLORS_JSON_FILE_NAME = "AGC_debugGuiColors.json"
+    const val WEAPON_COMP_TAG_PRESETS_CAMPAIGN_KEY = "AGC_weaponCompTagPresets"
+    const val CUSTOM_WEAPON_TAG_LISTS_CAMPAIGN_KEY = "AGC_customWeaponTagLists"
+    const val CUSTOM_SHIP_MODE_LISTS_CAMPAIGN_KEY = "AGC_customShipModeLists"
+    const val MAX_WEAPON_GROUPS = 7
     const val CUSTOM_SHIP_DATA_ARE_WEAPONS_MERGED_KEY = "AGC_WeaponsMerged"
     var storageIndex = 0
     const val HELP_TEXT =
@@ -26,7 +33,7 @@ object Values {
                 "\n---Fire Mode Tags---\nFire mode tags will modify what the weapon group targets and whether" +
                 " it will fire or not. Each tag will modify the behavior in a certain way. You can then combine multiple tags" +
                 "\nin order to create the desired behavior. For instance, if you wish for your weapon group to only shoot at" +
-                " missiles, assign the PD and NoFighters tags." +
+                " missiles, assign the PD and NoFighter tags." +
                 "\nTags that are incompatible to currently selected tags will be disabled." +
                 "\nEach additional tag will make it less likely for the weapons to fire. Only when all tags agree that" +
                 " a target should be shot at, the weapons will fire." +
@@ -42,7 +49,7 @@ object Values {
                 "\n---Tips---" +
                 "\n - Tags are mainly a flux management tool. If your ship is already flux-neutral, you probably won't need many tags." +
                 "\n - If you want a weapon group to fire as much as possible, give it no tags." +
-                " In my experience, no tags or just the Flx<90% tag is the right choice for many weapon groups" +
+                " In my experience, no tags or just the HoldFire(TF>90%) tag is the right choice for many weapon groups" +
                 "\n - Consider leaving one loadout blank (all default) to give you a fallback option." +
                 "\n - Be very careful with ship modes! Force disabling shields might sound cool until you run into a HIL." +
                 "\n - Most values/thresholds can be adjusted in Settings.editme or via LunaSettings, if you don't like the default values."

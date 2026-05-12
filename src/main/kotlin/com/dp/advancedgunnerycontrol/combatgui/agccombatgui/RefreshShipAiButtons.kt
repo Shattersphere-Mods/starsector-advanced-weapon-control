@@ -10,9 +10,13 @@ import org.magiclib.combatgui.buttongroups.MagicCombatRefreshButtonsAction
 
 class RefreshShipAiButtons(private val ship: ShipAPI) : MagicCombatRefreshButtonsAction {
     override fun refreshButtons(group: MagicCombatDataButtonGroup) {
-        if (loadShipModes(ship, Values.storageIndex).isEmpty()) {
-            saveShipModes(ship, Values.storageIndex, listOf(defaultShipMode))
+        val modes = loadShipModes(ship, Values.storageIndex)
+        if (modes.isEmpty()) {
+            val defaultModes = listOf(defaultShipMode)
+            saveShipModes(ship, Values.storageIndex, defaultModes)
+            group.refreshAllButtons(defaultModes)
+        } else {
+            group.refreshAllButtons(modes)
         }
-        group.refreshAllButtons(loadShipModes(ship, Values.storageIndex))
     }
 }

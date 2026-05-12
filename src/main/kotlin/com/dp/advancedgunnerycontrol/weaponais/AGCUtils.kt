@@ -29,6 +29,26 @@ fun ShipAPI.hasPhaseCloak(): Boolean{
     return hullSpec.isPhase && phaseCloak != null
 }
 
+fun WeaponAPI.isInRangeOf(point: Vector2f, threshold: Float = 1f): Boolean {
+    return (location - point).length() <= threshold * range
+}
+
+fun WeaponAPI.coerceAimPointIntoArc(point: Vector2f): Vector2f {
+    if (!isAimable(this) || arc >= 359.9f) return point
+
+    val distance = linearDistanceFromWeapon(point, this)
+    if (distance <= 0.01f) return point
+
+    val arcCenter = normalizeAngleDeg((ship?.facing ?: 0f) + arcFacing)
+    val aimAngle = degFromVector(point - location)
+    val offsetFromArcCenter = shortestSignedAngleDeg(arcCenter, aimAngle)
+    val halfArc = arc * 0.5f
+    if (abs(offsetFromArcCenter) <= halfArc) return point
+
+    val clampedAngle = arcCenter + offsetFromArcCenter.coerceIn(-halfArc, halfArc)
+    return location + (vectorFromAngleDeg(clampedAngle) times_ distance)
+}
+
 fun WeaponAPI.getMaxSpreadForNextBurst(): Float{
     spec ?: return currSpread
     if(spec.burstSize <= 1) return currSpread
@@ -185,8 +205,8 @@ class PolarEntityInWeaponCone(weaponLoc: Vector2f, aimPoint: Vector2f, spreadDeg
     }
 
     fun getUnobstructedLength(): Float{
-        val toReturn = segments.map { it.extent.second - it.extent.first }.sum()
-        return toReturn
+        val unobstructedLength = segments.map { it.extent.second - it.extent.first }.sum()
+        return unobstructedLength
     }
 
 }
@@ -214,6 +234,7 @@ fun isInvalid(aiPlugin: AutofireAIPlugin): Boolean {
 
 fun ammoLevel(weapon: WeaponAPI): Float {
     if (!weapon.usesAmmo()) return 1.0f
+    if (weapon.maxAmmo <= 0) return 1.0f
     return weapon.ammo.toFloat() / weapon.maxAmmo.toFloat()
 }
 
@@ -223,12 +244,10 @@ const val bignessCruiser = 5f
 const val bignessCapital = 20f
 const val bignessFighter = 0.1f
 fun isBig(ship: ShipAPI): Boolean {
-    if (!Settings.strictBigSmall()) return true
     return bigness(ship) > bignessFrigate + 0.1f
 }
 
 fun isSmall(ship: ShipAPI): Boolean {
-    if (!Settings.strictBigSmall()) return true
     return bigness(ship) < bignessCruiser - 0.1f
 }
 
@@ -251,10 +270,16 @@ fun getNeutralPosition(weapon: WeaponAPI): Vector2f {
     return weapon.location + (vectorFromAngleDeg(weapon.ship.facing) times_ 100f)
 }
 
-fun isOpportuneTarget(solution: FiringSolution?, weapon: WeaponAPI): Boolean {
+fun isOpportuneTarget(
+    solution: FiringSolution?,
+    weapon: WeaponAPI,
+    kineticThreshold: Float = Settings.opportunistKineticThreshold(),
+    highExplosiveThreshold: Float = Settings.opportunistHEThreshold(),
+    triggerHappinessModifier: Float = Settings.opportunistModifier(),
+): Boolean {
     val target = solution?.target as? ShipAPI ?: return false
     val p = solution.aimPoint
-    if (!isOpportuneType(target, weapon)) return false
+    if (!isOpportuneType(target, weapon, kineticThreshold, highExplosiveThreshold)) return false
     var trackingFactor = when (weapon.spec?.trackingStr?.lowercase(Locale.getDefault())) {
         "none" -> 1.0f
         "very poor" -> 1.25f
@@ -264,23 +289,28 @@ fun isOpportuneTarget(solution: FiringSolution?, weapon: WeaponAPI): Boolean {
         "good" -> 2.5f
         "excellent" -> 3.0f
         else -> 1.0f
-    } * 0.2f * Settings.opportunistModifier()
+    } * 0.2f * triggerHappinessModifier
     if (weapon.id?.contains("sabot") == true) trackingFactor *= 3
     if (target.maxSpeed > weapon.projectileSpeed * trackingFactor) return false
     val ttt = (weapon.location - p).length() / weapon.projectileSpeed
     val ammoLessModifier = if (!weapon.usesAmmo()) 1.0f else if (weapon.ammoTracker.reloadSize > 0f) 0.5f else 0.1f
-    return ((p - weapon.location).length() - effectiveCollRadius(target) * ammoLessModifier + ttt * target.maxSpeed * 0.1f / ammoLessModifier) <= weapon.range * 0.95f * Settings.opportunistModifier()
+    return ((p - weapon.location).length() - effectiveCollRadius(target) * ammoLessModifier + ttt * target.maxSpeed * 0.1f / ammoLessModifier) <= weapon.range * 0.95f * triggerHappinessModifier
 }
 
-private fun isOpportuneType(target: ShipAPI, weapon: WeaponAPI): Boolean {
+private fun isOpportuneType(
+    target: ShipAPI,
+    weapon: WeaponAPI,
+    kineticThreshold: Float,
+    highExplosiveThreshold: Float,
+): Boolean {
     if (weapon.spec?.primaryRoleStr?.lowercase(Locale.getDefault()) == "finisher") {
         return isDefenseless(target, weapon)
     }
     if (weapon.damageType == DamageType.HIGH_EXPLOSIVE || weapon.damageType == DamageType.FRAGMENTATION) {
-        return computeShieldFactor(target, weapon) < Settings.opportunistHEThreshold()
+        return computeShieldFactor(target, weapon) < highExplosiveThreshold
     }
     if (weapon.damageType == DamageType.KINETIC) {
-        return computeShieldFactor(target, weapon) > Settings.opportunistKineticThreshold()
+        return computeShieldFactor(target, weapon) > kineticThreshold
     }
     return true
 }
@@ -317,8 +347,8 @@ fun computeShieldFacingFactor(tgtShip: CombatEntityAPI, weapon: WeaponAPI, ttt: 
     ) // missing the shields by 15° or more means bypassing shot
 }
 
-fun computeTimeToTravel(weapon: WeaponAPI, tgt: Vector2f, leadingFactor: Float = 1f): Float {
-    return ((weapon.location - tgt).length() / (weapon.projectileSpeed * leadingFactor)) + computeRemainingChargeUpTime(
+fun computeTimeToTravel(weapon: WeaponAPI, targetPoint: Vector2f, leadingFactor: Float = 1f): Float {
+    return ((weapon.location - targetPoint).length() / (weapon.projectileSpeed * leadingFactor)) + computeRemainingChargeUpTime(
         weapon
     )
 }
@@ -414,22 +444,22 @@ fun predictEffectiveArmorAtImpact(target: CombatEntityAPI, firingWeapon: WeaponA
 }
 
 fun computeEffectiveArmorAroundIndex(armor: ArmorGridAPI, x: Int, y: Int) : Float{
-    fun getWeighted(x2: Int, y2: Int): Float{
-        val a = armor.getArmorValue(x2, y2)
-        val distance = (abs(x - x2) * abs(x - x2)) + (abs(y - y2) * abs(y - y2))
+    fun getWeighted(cellX: Int, cellY: Int): Float{
+        val armorValue = armor.getArmorValue(cellX, cellY)
+        val distance = (abs(x - cellX) * abs(x - cellX)) + (abs(y - cellY) * abs(y - cellY))
         return when{
-            distance <= 2 -> a
-            distance <= 4 -> 0.5f * a
+            distance <= 2 -> armorValue
+            distance <= 4 -> 0.5f * armorValue
             else -> 0f
         }
     }
-    var toReturn = 0f
-    for(x2 in x - 2 until x + 3){
-        for(y2 in y - 2 until y + 3){
-            toReturn += getWeighted(x2, y2)
+    var effectiveArmor = 0f
+    for(cellX in x - 2 until x + 3){
+        for(cellY in y - 2 until y + 3){
+            effectiveArmor += getWeighted(cellX, cellY)
         }
     }
-    return toReturn
+    return effectiveArmor
 }
 private fun isDefenseless(target: CombatEntityAPI, weapon: WeaponAPI): Boolean {
     if (target !is ShipAPI) return true
@@ -456,6 +486,14 @@ fun vectorFromAngleDeg(angle: Float): Vector2f {
 
 fun degFromVector(vec: Vector2f): Float {
     return atan2(vec.y, vec.x) / degToRad
+}
+
+fun normalizeAngleDeg(angle: Float): Float {
+    return ((angle % 360f) + 360f) % 360f
+}
+
+fun shortestSignedAngleDeg(from: Float, to: Float): Float {
+    return ((to - from + 540f) % 360f) - 180f
 }
 
 fun mapBooleanToSpecificString(boolValue: Boolean, trueString: String, falseString: String): String {
@@ -552,18 +590,18 @@ fun determineIfShotWillHit(
     weapon: WeaponAPI,
     aimPoint: Vector2f? = null
 ): Boolean {
-    val p = aimPoint?.minus(weapon.location) ?: vectorFromAngleDeg(weapon.currAngle).times_(5000f)
+    val shotVector = aimPoint?.minus(weapon.location) ?: vectorFromAngleDeg(weapon.currAngle).times_(5000f)
 
     val bounds = entity.exactBounds ?:
         return determineIfShotWillHit(predictedEntityPosition, fallbackCollRadius, weapon, aimPoint)
 
     bounds.update(predictedEntityPosition, entity.facing)
-    val p1 = weapon.location
-    val p2 = weapon.location + p
+    val shotStart = weapon.location
+    val shotEnd = weapon.location + shotVector
     return bounds.segments?.any { segment ->
-        val e1 = segment.p1
-        val e2 = segment.p2
-        CollisionUtils.getCollisionPoint(p1, p2, e1, e2) != null
+        val segmentStart = segment.p1
+        val segmentEnd = segment.p2
+        CollisionUtils.getCollisionPoint(shotStart, shotEnd, segmentStart, segmentEnd) != null
     } ?: false
 }
 

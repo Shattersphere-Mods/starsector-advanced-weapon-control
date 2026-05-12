@@ -11,6 +11,9 @@ import com.dp.advancedgunnerycontrol.weaponais.shipais.ShipCommandWrapper
 import com.fs.starfarer.api.combat.*
 
 abstract class WeaponAITagBase(protected val weapon: WeaponAPI) {
+    protected fun tagIgnoresThisWeapon(exclusions: DamageTypeExclusions): Boolean =
+        exclusions.ignores(weapon)
+
     open fun isValidTarget(entity: CombatEntityAPI): Boolean {
         if (entity is MissileAPI) {
             return isPD(weapon)
@@ -24,23 +27,8 @@ abstract class WeaponAITagBase(protected val weapon: WeaponAPI) {
     open fun addFarAwayTargets(): List<CombatEntityAPI> = emptyList()
 
     abstract fun computeTargetPriorityModifier(solution: FiringSolution): Float
-
-    /**
-     * weapon will fire if ALL tags return true. So, by default, tags should return true
-     */
     abstract fun shouldFire(solution: FiringSolution): Boolean
-
-    /**
-     * if ANY tag returns true, custom AI can be used. If all tags return false, only the base AI will run and the only
-     * thing that tags can do is to prevent the weapon from firing.
-     * So, tags should return true if they want to interfere with target selection/targeting in any way.
-     * Tags should return false, if they only do auxiliary stuff or only affect the shouldFire-decision.
-     */
     abstract fun isBaseAiOverridable(): Boolean
-
-    /**
-     * if any tag returns true here, the weapon will hold fire if debris is blocking the shot
-     */
     abstract fun avoidDebris(): Boolean
 
     open fun isBaseAiValid(entity: CombatEntityAPI): Boolean {
@@ -52,7 +40,22 @@ abstract class WeaponAITagBase(protected val weapon: WeaponAPI) {
     }
 
     open fun forceFire(solution: FiringSolution?, baseDecision: Boolean): Boolean = false
+    open fun overrideBaseFireDecision(solution: FiringSolution?, baseDecision: Boolean): Boolean = false
+    open fun overrideFiringSolution(): FiringSolution? = null
+    open fun computeTargetPriorityModifierForGroupTargetChoice(solution: FiringSolution): Float =
+        computeTargetPriorityModifier(solution)
+    open fun observeTargetPriority(solution: FiringSolution, priority: Float) {}
+    open fun isValidSynchronizedTarget(solution: FiringSolution): Boolean =
+        isValidTarget(solution.target) && shouldFire(solution)
+    open fun isSynchronizedReleaseActive(solution: FiringSolution): Boolean = false
+    open fun shouldFireDuringSynchronizedRelease(solution: FiringSolution): Boolean = shouldFire(solution)
+    open fun observeFiringDecision(solution: FiringSolution, baseDecision: Boolean) {}
+    open fun onFireAllowed(solution: FiringSolution) {}
     open fun advance() {}
+
+    fun advanceIfTagsEnabled() {
+        if (!DisableTagsRuntime.isDisabled(weapon)) advance()
+    }
 
     // Note: if true, advance will be called every frame, even if the weapon group is not set to autofire!
     open val advanceWhenTurnedOff: Boolean = false

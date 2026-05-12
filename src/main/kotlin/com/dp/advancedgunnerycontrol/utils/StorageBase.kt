@@ -1,26 +1,26 @@
 package com.dp.advancedgunnerycontrol.utils
 
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.fs.starfarer.api.Global
 
 typealias StorageBaseIntKey<ValueType> = StorageBase<Int, ValueType>
 open class StorageBase<KeyType, ValueType>(val persistentDataKey: String) {
 
     companion object {
         fun <KeyType, ValueType> assembleStorageArray(baseKey: String, size: Int = Settings.maxLoadouts()): List<StorageBase<KeyType, ValueType>> {
-            val toReturn = mutableListOf(StorageBase<KeyType, ValueType>(baseKey))
-            for (i in 1 until size) {
-                toReturn.add(StorageBase(baseKey + i.toString()))
+            val storageSlots = mutableListOf(StorageBase<KeyType, ValueType>(baseKey))
+            for (slotIndex in 1 until size) {
+                storageSlots.add(StorageBase(baseKey + slotIndex.toString()))
             }
-            return toReturn.toList()
+            return storageSlots.toList()
         }
     }
 
     private fun getMap(wasFallback: Boolean = false): MutableMap<String, MutableMap<KeyType, ValueType>> {
-        return (Global.getSector().persistentData[persistentDataKey] as? MutableMap<String, MutableMap<KeyType, ValueType>>?)
+        val persistentData = agcPersistentDataOrNull("storage '$persistentDataKey'") ?: return mutableMapOf()
+        return (persistentData[persistentDataKey] as? MutableMap<String, MutableMap<KeyType, ValueType>>?)
             ?: kotlin.run {
-                Global.getSector().persistentData.remove(persistentDataKey)
-                Global.getSector().persistentData[persistentDataKey] =
+                persistentData.remove(persistentDataKey)
+                persistentData[persistentDataKey] =
                     mutableMapOf<String, MutableMap<KeyType, ValueType>>()
                 if (wasFallback) return mutableMapOf()
                 return getMap(true)
@@ -35,22 +35,29 @@ open class StorageBase<KeyType, ValueType>(val persistentDataKey: String) {
             return getMap()
         }
         set(value) {
-            Global.getSector().persistentData[persistentDataKey] = value
+            agcPersistentDataOrNull("storage '$persistentDataKey' write")?.set(persistentDataKey, value)
         }
 
-    inline fun <reified T> purgeIfNecessary() {
-        val map = Global.getSector().persistentData[persistentDataKey] as? MutableMap<*, *>?
+    inline fun <reified T> purgeIfNecessary(
+        crossinline keyIsValid: (Any?) -> Boolean = { true },
+        crossinline valueIsValid: (Any?) -> Boolean = { it is T },
+    ) {
+        val persistentData = agcPersistentDataOrNull("storage '$persistentDataKey' purge validation") ?: return
+        val map = persistentData[persistentDataKey] as? MutableMap<*, *>?
         if (map == null) {
             purge(); return
         }
         if (map.isEmpty()) {
             purge(); return
         }
-        val subMap = (map.values.firstOrNull() as? MutableMap<*, *>)
-        if (subMap == null) {
-            purge(); return
+        val validShape = map.all { (shipId, loadoutValues) ->
+            shipId is String &&
+                loadoutValues is MutableMap<*, *> &&
+                loadoutValues.all { (key, value) ->
+                    keyIsValid(key) && valueIsValid(value)
+                }
         }
-        if (subMap.values.firstOrNull() !is T) {
+        if (!validShape) {
             purge(); return
         }
         if (!Settings.enablePersistentModes()) {
@@ -59,6 +66,6 @@ open class StorageBase<KeyType, ValueType>(val persistentDataKey: String) {
     }
 
     fun purge() {
-        Global.getSector().persistentData.remove(persistentDataKey)
+        agcPersistentDataOrNull("storage '$persistentDataKey' purge")?.remove(persistentDataKey)
     }
 }

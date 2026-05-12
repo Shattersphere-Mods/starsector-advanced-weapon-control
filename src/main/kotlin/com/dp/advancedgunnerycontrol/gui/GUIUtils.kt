@@ -1,6 +1,7 @@
 package com.dp.advancedgunnerycontrol.gui
 
 import com.dp.advancedgunnerycontrol.settings.Settings
+import com.dp.advancedgunnerycontrol.utils.getVariantWeaponGroup
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.combat.WeaponAPI
 import com.fs.starfarer.api.combat.WeaponGroupAPI
@@ -53,7 +54,7 @@ fun groupWeaponSpriteNames(group: WeaponGroupSpec, sh: FleetMemberAPI): List<Str
 }
 
 fun isElligibleForPD(groupIndex: Int, sh: FleetMemberAPI): Boolean {
-    val group = sh.variant.weaponGroups[groupIndex]
+    val group = getVariantWeaponGroup(sh, groupIndex) ?: return false
     val hasIPDA = sh.variant.hasHullMod("pointdefenseai")
     return group.slots.mapNotNull { sh.variant.getWeaponId(it) }.map {
         val weapon = Global.getSettings().getWeaponSpec(it)
@@ -66,13 +67,20 @@ fun isElligibleForPD(groupIndex: Int, sh: FleetMemberAPI): Boolean {
 }
 
 fun isEverythingBlacklisted(groupIndex: Int, sh: FleetMemberAPI): Boolean {
-    val group = sh.variant.weaponGroups[groupIndex]
+    val group = getVariantWeaponGroup(sh, groupIndex) ?: return false
     return (group.slots.mapNotNull { sh.variant.getWeaponId(it) }.all { Settings.weaponBlacklist.contains(it) })
 }
 
 fun usesAmmo(groupIndex: Int, sh: FleetMemberAPI): Boolean {
-    val group = sh.variant.weaponGroups[groupIndex]
+    val group = getVariantWeaponGroup(sh, groupIndex) ?: return false
     return group.slots.mapNotNull { Global.getSettings().getWeaponSpec(sh.variant.getWeaponId(it)) }.any {
         it.usesAmmo()
+    }
+}
+
+fun usesAmmoNonMissile(groupIndex: Int, sh: FleetMemberAPI): Boolean {
+    val group = getVariantWeaponGroup(sh, groupIndex) ?: return false
+    return group.slots.mapNotNull { Global.getSettings().getWeaponSpec(sh.variant.getWeaponId(it)) }.any {
+        it.usesAmmo() && it.type != WeaponAPI.WeaponType.MISSILE
     }
 }

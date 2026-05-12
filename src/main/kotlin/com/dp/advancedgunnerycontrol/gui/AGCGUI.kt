@@ -2,7 +2,6 @@ package com.dp.advancedgunnerycontrol.gui
 
 import com.dp.advancedgunnerycontrol.gui.actions.ExitAction
 import com.dp.advancedgunnerycontrol.gui.actions.GUIAction
-import com.dp.advancedgunnerycontrol.gui.actions.generateShipActions
 import com.dp.advancedgunnerycontrol.gui.suggesttaggui.SuggestedTagGui
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.dp.advancedgunnerycontrol.typesandvalues.Values
@@ -14,27 +13,34 @@ import com.fs.starfarer.api.campaign.rules.MemoryAPI
 import com.fs.starfarer.api.combat.EngagementResultAPI
 import com.fs.starfarer.api.fleet.FleetMemberAPI
 import com.fs.starfarer.api.ui.TooltipMakerAPI
-import java.awt.Color
-import kotlin.math.min
+import org.lwjgl.input.Keyboard
 
+/**
+ * Top-level campaign AGC interaction dialog.
+ * Shows the fleet-member picker and opens the campaign ShipView editor or the
+ * standalone Customize Suggested Tags dialog.
+ */
 class AGCGUI : InteractionDialogPlugin {
     companion object {
         var storageIndex = Values.storageIndex //
 
         fun makeTooltip(description: String): TooltipMakerAPI.TooltipCreator {
             return object : TooltipMakerAPI.TooltipCreator {
-                override fun isTooltipExpandable(p0: Any?): Boolean = false
-                override fun getTooltipWidth(p0: Any?): Float = min(description.length.toFloat() * 7f, 850f)
-                override fun createTooltip(tooltip: TooltipMakerAPI?, p1: Boolean, p2: Any?) {
-                    tooltip?.addPara(description, Color.GREEN, 5f)
+                override fun isTooltipExpandable(tooltipParam: Any?): Boolean = false
+                override fun getTooltipWidth(tooltipParam: Any?): Float = CampaignGuiStyle.STANDARD_TOOLTIP_WIDTH
+                override fun createTooltip(tooltip: TooltipMakerAPI?, expanded: Boolean, tooltipParam: Any?) {
+                    tooltip?.applyAgcTooltipTextStyle()
+                    tooltip?.addAgcText(description, 5f)
                 }
             }
         }
     }
 
     private var attributes = GUIAttributes()
-    private var shipView: ShipView? = null
-    private var lastModifierKeys = GUIAction.modifierKeys()
+    private var campaignEditorPanel: CampaignShipEditorPanelPlugin? = null
+    private var pendingShipEditorOpen = false
+    private var pendingShipEditorDelay = 0f
+    private var guiHotkeyWasDown = false
 
     private fun addAction(action: GUIAction) {
         attributes.options?.addOption(action.getName(), action, action.getTooltip())
@@ -44,19 +50,35 @@ class AGCGUI : InteractionDialogPlugin {
     }
 
     override fun init(dialog: InteractionDialogAPI?) {
-        storageIndex = 0
+        storageIndex = Values.storageIndex
+        pendingShipEditorOpen = false
+        pendingShipEditorDelay = 0f
+        guiHotkeyWasDown = Keyboard.isKeyDown(Settings.guiHotkey())
         attributes.init(dialog)
         if (!Settings.enablePersistentModes()) {
-            attributes.text?.addPara("Persistent Storage has been disabled in the settings.")
-            attributes.text?.addPara("Enable it to use this GUI")
+            attributes.text?.addAgcText("Persistent Storage has been disabled in the settings.")
+            attributes.text?.addAgcText("Enable it to use this GUI")
             addAction(ExitAction(attributes))
             return
+        }
+        val pendingShipId = GUIShower.pendingCampaignShipEditorShipId
+        GUIShower.pendingCampaignShipEditorShipId = null
+        if (pendingShipId != null) {
+            val ship = editableCampaignShips()
+                .firstOrNull { !it.isFighterWing && it.id == pendingShipId }
+            if (ship != null) {
+                attributes.ship = ship
+                attributes.level = Level.SHIP
+                pendingShipEditorOpen = true
+                pendingShipEditorDelay = 0.05f
+                return
+            }
         }
         displayOptions()
     }
 
-    override fun optionSelected(str: String?, data: Any?) {
-        (data as? GUIAction)?.execute()
+    override fun optionSelected(optionText: String?, optionData: Any?) {
+        (optionData as? GUIAction)?.execute()
         displayOptions()
         return
     }
@@ -65,17 +87,22 @@ class AGCGUI : InteractionDialogPlugin {
         attributes.options?.clearOptions()
         when (attributes.level) {
             Level.TOP -> displayFleetOptions()
-            Level.SHIP -> displayShipOptions()
+            Level.SHIP -> openShipEditor()
         }
     }
 
-    private fun showModeGUI() {
-        shipView = ShipView(attributes.tagView)
-        shipView?.showShipModes(attributes)
-    }
-
     private fun displayFleetOptions() {
+        pendingShipEditorOpen = false
+        pendingShipEditorDelay = 0f
         clear()
+        attributes.dialog?.showTextPanel()
+        attributes.dialog?.showVisualPanel()
+        val ships = editableCampaignShips()
+        if (ships.isEmpty()) {
+            attributes.text?.addAgcText("No editable ships are available.")
+            addAction(ExitAction(attributes))
+            return
+        }
         attributes.dialog?.showFleetMemberPickerDialog("Pick a ship to adjust weapon modes & suffixes for",
             "Confirm",
             "Exit",
@@ -84,13 +111,17 @@ class AGCGUI : InteractionDialogPlugin {
             100f,
             true,
             false,
-            Global.getSector().playerFleet.membersWithFightersCopy.filter { !it.isFighterWing },
+            ships,
             object : FleetMemberPickerListener {
                 override fun pickedFleetMembers(selected: MutableList<FleetMemberAPI>?) {
                     selected?.firstOrNull()?.let {
                         attributes.ship = it
                         attributes.level = Level.SHIP
-                        displayOptions()
+                        pendingShipEditorOpen = true
+                        pendingShipEditorDelay = 0.05f
+                        Global.getLogger(AGCGUI::class.java).info(
+                            "[AGC_CAMPAIGN_UI] queued ship editor open ship=${it.shipName} hull=${it.variant?.hullVariantId}"
+                        )
                         return
                     } ?: attributes.dialog?.dismiss()
                 }
@@ -101,12 +132,30 @@ class AGCGUI : InteractionDialogPlugin {
             })
     }
 
-    private fun displayShipOptions() {
+    private fun editableCampaignShips(): List<FleetMemberAPI> {
+        return Global.getSector()?.playerFleet?.membersWithFightersCopy
+            ?.filter { !it.isFighterWing }
+            .orEmpty()
+    }
+
+    private fun openShipEditor() {
         clear()
-        showModeGUI()
-        generateShipActions(attributes).forEach {
-            addAction(it)
+        attributes.options?.clearOptions()
+        attributes.dialog?.hideTextPanel()
+        attributes.dialog?.hideVisualPanel()
+        attributes.dialog?.setPromptText("")
+        Global.getLogger(AGCGUI::class.java).info(
+            "[AGC_CAMPAIGN_UI] openShipEditor ship=${attributes.ship?.shipName} hull=${attributes.ship?.variant?.hullVariantId}"
+        )
+        campaignEditorPanel = CampaignShipEditorPanelPlugin(attributes) {
+            attributes.level = Level.TOP
+            displayFleetOptions()
         }
+        attributes.dialog?.showCustomVisualDialog(
+            Global.getSettings().screenWidth.toFloat(),
+            Global.getSettings().screenHeight.toFloat(),
+            CampaignShipEditorDialogDelegate(campaignEditorPanel ?: return)
+        )
     }
 
     private fun clear() {
@@ -115,17 +164,28 @@ class AGCGUI : InteractionDialogPlugin {
     }
 
     override fun optionMousedOver(optionString: String?, optionData: Any?) {}
-    override fun advance(p0: Float) {
-        if (shipView?.shouldRegenerate() == true) {
-            showModeGUI()
-        }
-        if(lastModifierKeys != GUIAction.modifierKeys()){
-            displayOptions()
-            lastModifierKeys = GUIAction.modifierKeys()
-        }
+    override fun advance(amount: Float) {
+        if (closeShipSelectOnGuiHotkey()) return
+        if (!pendingShipEditorOpen) return
+        pendingShipEditorDelay -= amount
+        if (pendingShipEditorDelay > 0f) return
+        pendingShipEditorOpen = false
+        displayOptions()
     }
 
-    override fun backFromEngagement(p0: EngagementResultAPI?) {}
+    private fun closeShipSelectOnGuiHotkey(): Boolean {
+        val guiHotkeyDown = Keyboard.isKeyDown(Settings.guiHotkey())
+        val shouldClose = attributes.level == Level.TOP &&
+            !pendingShipEditorOpen &&
+            guiHotkeyDown &&
+            !guiHotkeyWasDown
+        guiHotkeyWasDown = guiHotkeyDown
+        if (!shouldClose) return false
+        attributes.dialog?.dismiss()
+        return true
+    }
+
+    override fun backFromEngagement(result: EngagementResultAPI?) {}
     override fun getContext(): Any? = null
     override fun getMemoryMap(): MutableMap<String, MemoryAPI>? = null
 }

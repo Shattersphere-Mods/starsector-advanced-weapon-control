@@ -1,38 +1,74 @@
 package com.dp.advancedgunnerycontrol.utils
 
 import com.dp.advancedgunnerycontrol.typesandvalues.Values
+import com.fs.starfarer.api.Global
 import org.json.JSONArray
+import org.json.JSONObject
 import org.lazywizard.lazylib.JSONUtils
-import org.magiclib.kotlin.toStringList
 
 fun clearJsonMapFile(file: String){
-    val data = JSONUtils.loadCommonJSON(file)
-    val keys = mutableListOf<String>()
-    data.keys().forEach {k->
-        (k as? String)?.let { keys.add(it) }
+    try {
+        val data = JSONUtils.loadCommonJSON(file)
+        clearJsonObject(data)
+        data.save()
+    } catch (ex: Throwable) {
+        logJsonWarn("Failed clearing common JSON map '$file'.", ex)
     }
-    keys.forEach {
-        data.remove(it)
-    }
-    data.save()
 }
 
 fun saveJsonMapAsFile(file: String, map: Map<String, List<String>>){
-    clearJsonMapFile(file)
-    val data = JSONUtils.loadCommonJSON(file)
-    map.forEach{
-        data.put(it.key, it.value.toSet().toList())
+    try {
+        val data = JSONUtils.loadCommonJSON(file)
+        clearJsonObject(data)
+        map.forEach {
+            data.put(it.key, JSONArray(it.value.toSet().toList()))
+        }
+        data.save()
+    } catch (ex: Throwable) {
+        logJsonWarn("Failed saving common JSON map '$file'.", ex)
     }
-    data.save()
 }
 
 fun readJsonMapFromFile(file:String): Map<String, List<String>>{
-    val data = JSONUtils.loadCommonJSON(file)
-    val m = mutableMapOf <String, List<String>>()
-    data.keys().forEach { key ->
-        (key as? String)?.let {
-            m[key] = (data.get(key) as JSONArray).toStringList()
+    return try {
+        val data = JSONUtils.loadCommonJSON(file)
+        val valuesByKey = mutableMapOf <String, List<String>>()
+        data.keys().forEach { key ->
+            (key as? String)?.let {
+                val array = data.optJSONArray(it)
+                if (array == null) {
+                    logJsonWarn("Ignoring malformed common JSON map entry '$it' in '$file' because it is not an array.")
+                    return@forEach
+                }
+                valuesByKey[it] = jsonArrayToStringList(array)
+            }
         }
+        valuesByKey
+    } catch (ex: Throwable) {
+        logJsonWarn("Failed reading common JSON map '$file'. Falling back to empty data.", ex)
+        emptyMap()
     }
-    return m
+}
+
+private fun clearJsonObject(data: JSONObject) {
+    val keys = mutableListOf<String>()
+    data.keys().forEach { key ->
+        (key as? String)?.let { keys.add(it) }
+    }
+    keys.forEach { data.remove(it) }
+}
+
+private fun jsonArrayToStringList(jsonArray: JSONArray): List<String> {
+    val values = mutableListOf<String>()
+    for (index in 0 until jsonArray.length()) {
+        val value = jsonArray.opt(index) as? String ?: continue
+        val trimmed = value.trim()
+        if (trimmed.isNotEmpty()) values.add(trimmed)
+    }
+    return values
+}
+
+private fun logJsonWarn(message: String, throwable: Throwable? = null) {
+    val logger = Global.getLogger(Values::class.java)
+    if (throwable == null) logger.warn(message) else logger.warn(message, throwable)
 }

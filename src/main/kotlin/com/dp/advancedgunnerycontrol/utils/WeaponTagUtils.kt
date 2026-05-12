@@ -1,6 +1,5 @@
 package com.dp.advancedgunnerycontrol.utils
 
-import com.dp.advancedgunnerycontrol.gui.groupAsString
 import com.dp.advancedgunnerycontrol.gui.refitscreen.ModuleIdManager
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.dp.advancedgunnerycontrol.typesandvalues.*
@@ -10,52 +9,117 @@ import com.fs.starfarer.api.combat.AutofireAIPlugin
 import com.fs.starfarer.api.combat.ShipAPI
 import com.fs.starfarer.api.combat.WeaponAPI
 import com.fs.starfarer.api.fleet.FleetMemberAPI
+import com.fs.starfarer.api.loading.WeaponGroupSpec
 import com.fs.starfarer.campaign.fleet.FleetMember
+import java.util.WeakHashMap
 
-enum class TagStorageModes{
-    INDEX, WEAPON_COMPOSITION, WEAPON_COMPOSITION_GLOBAL
+fun getVariantWeaponGroup(member: FleetMemberAPI, groupIndex: Int): WeaponGroupSpec? {
+    if (groupIndex < 0) return null
+    return try {
+        // Use the numbered accessor; variant.weaponGroups is not a reliable
+        // stand-in for fixed UI slots when empty groups are present.
+        member.variant?.getGroup(groupIndex)?.takeIf { it.slots?.isNotEmpty() == true }
+    } catch (_: Throwable) {
+        null
+    }
 }
 
-val tagStorageModeFromStr = mapOf(
-    "Index" to TagStorageModes.INDEX,
-    "WeaponComposition" to TagStorageModes.WEAPON_COMPOSITION,
-    "WeaponCompositionGlobal" to TagStorageModes.WEAPON_COMPOSITION_GLOBAL
-).withDefault { TagStorageModes.INDEX }
+/**
+ * Shared persistence gateway for campaign and direct refit/combat editors.
+ * Runtime ships need local custom data plus immediate AI application; campaign
+ * fleet members only update persistent storage until the ship is later loaded.
+ */
+class ShipEditorPersistenceContext(
+    val member: FleetMemberAPI,
+    val runtimeShip: ShipAPI? = null,
+) {
+    private data class WeaponTagCacheKey(val groupIndex: Int, val loadoutIndex: Int)
+
+    private val weaponTagsByKey = mutableMapOf<WeaponTagCacheKey, List<String>>()
+    private val modesByLoadout = mutableMapOf<Int, List<String>>()
+
+    val shipId: String by lazy {
+        runtimeShip?.let { agcStableShipId(it) } ?: agcStableShipId(member)
+    }
+
+    fun loadWeaponTags(groupIndex: Int, loadoutIndex: Int): List<String> {
+        val key = WeaponTagCacheKey(groupIndex, loadoutIndex)
+        return weaponTagsByKey.getOrPut(key) {
+            runtimeShip?.let { loadTags(it, groupIndex, loadoutIndex) }
+                ?: loadPersistentTags(shipId, groupIndex, loadoutIndex)
+        }
+    }
+
+    fun saveWeaponTags(groupIndex: Int, loadoutIndex: Int, tags: List<String>) {
+        val canonicalTags = canonicalizeWeaponTagNames(tags)
+        if (runtimeShip != null) {
+            saveTags(runtimeShip, groupIndex, loadoutIndex, canonicalTags)
+            applyTagsToWeaponGroup(runtimeShip, groupIndex, canonicalTags)
+        } else {
+            persistTags(shipId, groupIndex, loadoutIndex, canonicalTags)
+        }
+        weaponTagsByKey[WeaponTagCacheKey(groupIndex, loadoutIndex)] = canonicalTags
+    }
+
+    fun loadModes(loadoutIndex: Int): List<String> {
+        return modesByLoadout.getOrPut(loadoutIndex) {
+            runtimeShip?.let { loadShipModes(it, loadoutIndex) }
+                ?: loadPersistedShipModes(shipId, loadoutIndex)
+        }
+    }
+
+    fun saveModes(loadoutIndex: Int, modes: List<String>) {
+        val canonicalModes = canonicalizeShipModeNames(modes)
+        if (runtimeShip != null) {
+            saveShipModes(runtimeShip, loadoutIndex, canonicalModes)
+            assignShipModes(canonicalModes, runtimeShip)
+        } else {
+            persistShipModes(shipId, loadoutIndex, canonicalModes)
+        }
+        modesByLoadout[loadoutIndex] = canonicalModes
+    }
+
+    fun loadAllUsedTags(): List<String> = loadAllTags(member, shipId)
+}
 
 fun WeaponAPI.getAutofirePlugin() : AutofireAIPlugin?{
     return this.ship?.getWeaponGroupFor(this)?.getAutofirePlugin(this)
 }
 fun applyTagsToWeaponGroup(ship: ShipAPI, groupIndex: Int, tags: List<String>): Boolean {
     val weaponGroup = ship.weaponGroupsCopy?.getOrNull(groupIndex) ?: return false
+    val canonicalTags = canonicalizeWeaponTagNames(tags)
     val plugins = weaponGroup.aiPlugins
-    for (i in 0 until plugins.size) {
-        if(Settings.weaponBlacklist.contains(weaponGroup.weaponsCopy?.getOrNull(i)?.id)) continue
-        if (plugins[i] !is TagBasedAI) {
-            plugins[i] = TagBasedAI(plugins[i])
+    for (pluginIndex in 0 until plugins.size) {
+        if(Settings.weaponBlacklist.contains(weaponGroup.weaponsCopy?.getOrNull(pluginIndex)?.id)) continue
+        if (plugins[pluginIndex] !is TagBasedAI) {
+            plugins[pluginIndex] = TagBasedAI(plugins[pluginIndex])
         }
-        (plugins[i] as? TagBasedAI)?.tags = createTags(tags, plugins[i].weapon).toMutableList()
+        (plugins[pluginIndex] as? TagBasedAI)?.tags = createTags(canonicalTags, plugins[pluginIndex].weapon).toMutableList()
     }
-    return plugins.all { (it as? TagBasedAI)?.tags?.all { t -> t.isValid() } ?: true }
+    return plugins.all { plugin -> (plugin as? TagBasedAI)?.tags?.all { tag -> tag.isValid() } ?: true }
 }
 
 fun applyTagsToWeapon(weapon: WeaponAPI, tags: List<String>) {
     if(Settings.weaponBlacklist.contains(weapon.id)) return
-    val weaponGroup = weapon.ship.getWeaponGroupFor(weapon)
-    val plugin = weaponGroup.getAutofirePlugin(weapon)
+    val canonicalTags = canonicalizeWeaponTagNames(tags)
+    val weaponGroup = weapon.ship?.getWeaponGroupFor(weapon) ?: return
+    val plugin = weaponGroup.getAutofirePlugin(weapon) ?: return
 
     if (plugin !is TagBasedAI) {
-        setAutofirePlugin(weapon, TagBasedAI(plugin, createTags(tags, weapon).toMutableList()))
+        setAutofirePlugin(weapon, TagBasedAI(plugin, createTags(canonicalTags, weapon).toMutableList()))
     } else {
         val combinedTags = plugin.tags.toMutableSet()
-        combinedTags.addAll(createTags(tags, weapon))
+        combinedTags.addAll(createTags(canonicalTags, weapon))
         plugin.tags = combinedTags.toMutableList()
     }
 
 }
 
 fun setAutofirePlugin(weapon: WeaponAPI, plugin: AutofireAIPlugin) {
-    val weaponGroup = weapon.ship.getWeaponGroupFor(weapon)
-    val index = weaponGroup.aiPlugins.indexOf(weaponGroup.getAutofirePlugin(weapon))
+    val weaponGroup = weapon.ship?.getWeaponGroupFor(weapon) ?: return
+    val currentPlugin = weaponGroup.getAutofirePlugin(weapon) ?: return
+    val index = weaponGroup.aiPlugins.indexOf(currentPlugin)
+    if (index < 0) return
     weaponGroup.aiPlugins[index] = plugin
 }
 
@@ -66,12 +130,12 @@ fun reloadAllShips(storageIndex: Int) {
 fun reloadShips(storageIndex: Int, ships: List<ShipAPI?>?) {
     ships?.filter { it?.owner == 0 }?.filterNotNull().let { relevantShips ->
         relevantShips?.forEach { ship ->
-            for (i in 0 until ship.weaponGroupsCopy.size) {
+            for (groupIndex in 0 until ship.weaponGroupsCopy.size) {
                 if(Settings.autoApplySuggestedTags){
                     ship.fleetMember?.let { applySuggestedModes(it, storageIndex, false) }
                 }
-                val tags = loadTags(ship, i, storageIndex)
-                applyTagsToWeaponGroup(ship, i, tags)
+                val tags = loadTags(ship, groupIndex, storageIndex)
+                applyTagsToWeaponGroup(ship, groupIndex, tags)
             }
             val shipModes = loadShipModes(ship, storageIndex)
             assignShipModes(shipModes, ship)
@@ -84,12 +148,15 @@ fun reloadShips(storageIndex: Int, ships: List<ShipAPI?>?) {
 fun persistTemporaryShipData(storageIndex: Int, ships: List<ShipAPI?>?) {
     ships?.filter { it?.owner == 0 }?.filterNotNull().let {
         it?.forEach { ship ->
-            for (i in 0 until ship.weaponGroupsCopy.size) {
-                val tags = loadTags(ship, i, storageIndex)
-                persistTags(ship.id, ship.fleetMember, i, storageIndex, tags)
+            if (ship.fleetMember == null) return@forEach
+            // Runtime ships, especially modules, must round-trip through the same universal id used by loadTags().
+            val shipId = agcStableShipId(ship)
+            for (groupIndex in 0 until ship.weaponGroupsCopy.size) {
+                val tags = loadTags(ship, groupIndex, storageIndex)
+                persistTags(shipId, groupIndex, storageIndex, tags)
             }
             val modes = loadShipModes(ship, storageIndex)
-            persistShipModes(ship.id, storageIndex, modes)
+            persistShipModes(shipId, storageIndex, modes)
         }
     }
 }
@@ -97,8 +164,8 @@ fun persistTemporaryShipData(storageIndex: Int, ships: List<ShipAPI?>?) {
 fun loadTags(ship: ShipAPI, index: Int, storageIndex: Int): List<String> {
     if (Settings.enableCombatChangePersistence() || !doesShipHaveLocalTags(ship, storageIndex)) {
         if(ship.fleetMember == null) return emptyList()
-        val shipId = generateUniversalFleetMemberId(ship)
-        return loadPersistentTags(shipId, ship.fleetMember, index, storageIndex)
+        val shipId = agcStableShipId(ship)
+        return loadPersistentTags(shipId, index, storageIndex)
     }
     return loadTagsFromShip(ship, index, storageIndex)
 }
@@ -110,10 +177,10 @@ fun loadTags(ship: ShipAPI, index: Int, storageIndex: Int): List<String> {
  */
 fun loadAllTags(ship: FleetMemberAPI, universalId: String? = null): List<String> {
     val tags = mutableSetOf<String>()
-    val shipId = universalId ?: ship.id ?: ""
-    for (si in 0 until Settings.maxLoadouts()) {
-        for (i in 0 until ship.variant.weaponGroups.size) {
-            tags.addAll(loadPersistentTags(shipId, ship, i, si))
+    val shipId = universalId ?: agcStableShipId(ship)
+    for (loadoutIndex in 0 until Settings.maxLoadouts()) {
+        for (groupIndex in 0 until Values.MAX_WEAPON_GROUPS) {
+            tags.addAll(loadPersistentTags(shipId, groupIndex, loadoutIndex))
         }
     }
     return tags.toList()
@@ -121,17 +188,44 @@ fun loadAllTags(ship: FleetMemberAPI, universalId: String? = null): List<String>
 
 fun saveTags(ship: ShipAPI, groupIndex: Int, loadoutIndex: Int, tags: List<String>) {
     if (Settings.enableCombatChangePersistence()) {
-        val shipId = generateUniversalFleetMemberId(ship)
+        val shipId = agcStableShipId(ship)
         if(ship.fleetMember == null) return
-        persistTags(shipId, ship.fleetMember, groupIndex, loadoutIndex, tags)
+        persistTags(shipId, groupIndex, loadoutIndex, tags)
     }
     saveTagsInShip(ship, groupIndex, tags, loadoutIndex)
+}
+
+fun agcStableShipId(ship: ShipAPI): String {
+    return generateUniversalFleetMemberId(ship)
+}
+
+fun agcStableShipId(ship: FleetMemberAPI): String {
+    return generateUniversalFleetMemberId(ship).ifBlank { ship.id.orEmpty() }
+}
+
+fun agcShortShipId(rawId: String?, fallback: String = "UNKNOWN"): String {
+    return rawId
+        .orEmpty()
+        .filter { it.isLetterOrDigit() }
+        .take(6)
+        .uppercase()
+        .ifBlank { fallback }
+}
+
+fun agcShortShipId(ship: FleetMemberAPI?, fallback: String = "UNKNOWN"): String {
+    return ship?.let { agcShortShipId(agcStableShipId(it), fallback) } ?: fallback
+}
+
+fun agcShortShipId(ship: ShipAPI?, fallback: String = "UNKNOWN"): String {
+    return ship?.let { agcShortShipId(agcStableShipId(it), fallback) } ?: fallback
 }
 
 fun generateUniversalFleetMemberId(parentId: String, moduleIndex: Int): String{
     if (moduleIndex < 0) return ""
     return parentId + moduleIndex.toString()
 }
+
+private val fleetMemberUniversalIdCache = WeakHashMap<FleetMemberAPI, String>()
 
 /**
  * generate unique & persistent fleetMemberId
@@ -151,18 +245,23 @@ fun generateUniversalFleetMemberId(ship: ShipAPI): String {
 }
 
 fun generateUniversalFleetMemberId(ship: FleetMemberAPI): String{
-    return ((ship as? FleetMember)?.instantiateForCombat(null, 0, null) as? ShipAPI)?.let {
+    fleetMemberUniversalIdCache[ship]?.let { return it }
+    // Instantiating a combat ship is the only reliable path for module-aware ids,
+    // but doing it repeatedly during GUI rebuilds is visibly expensive.
+    val id = ((ship as? FleetMember)?.instantiateForCombat(null, 0, null) as? ShipAPI)?.let {
         generateUniversalFleetMemberId(it)
-    } ?: ship.id
+    } ?: ship.id.orEmpty()
+    fleetMemberUniversalIdCache[ship] = id
+    return id
 }
 
-fun persistTags(shipId: String, member: FleetMemberAPI, groupIndex: Int, loadoutIndex: Int, tags: List<String>) {
+fun persistTags(shipId: String, groupIndex: Int, loadoutIndex: Int, tags: List<String>) {
     if (shipId == "") return
-    when(Settings.tagStorageMode){
-        TagStorageModes.INDEX -> persistTagsByIndex(shipId, groupIndex, loadoutIndex, tags)
-        TagStorageModes.WEAPON_COMPOSITION -> persistTagsByWeaponComposition(shipId, member, groupIndex, loadoutIndex, tags)
-        TagStorageModes.WEAPON_COMPOSITION_GLOBAL -> persistTagsByWeaponCompositionGlobal(shipId, member, groupIndex, loadoutIndex, tags)
-    }
+    val canonicalTags = canonicalizeWeaponTagNames(tags)
+    val storage = Settings.tagStorage.getOrNull(loadoutIndex) ?: return
+    val tagsByGroup = storage.modesByShip
+        .getOrPut(shipId) { mutableMapOf() }
+    tagsByGroup[groupIndex] = canonicalTags.toSet().toList()
 }
 
 fun WeaponAPI.hasAgcTag(tag: String): Boolean{
@@ -174,83 +273,19 @@ fun WeaponAPI.hasAnyAgcTag(vararg tags: String): Boolean{
     return tags.any { hasAgcTag(it) }
 }
 
-fun persistTagsByIndex(shipId: String, groupIndex: Int, loadoutIndex: Int, tags: List<String>){
-    if (!Settings.tagStorage[loadoutIndex].modesByShip.containsKey(shipId)) {
-        Settings.tagStorage[loadoutIndex].modesByShip[shipId] = mutableMapOf()
-    }
-    Settings.tagStorage[loadoutIndex].modesByShip[shipId]?.set(groupIndex, tags.toSet().toList())
-}
-
-fun persistTagsByWeaponComposition(universalShipId: String, member: FleetMemberAPI, groupIndex: Int, loadoutIndex: Int, tags: List<String>, shipKey: String = universalShipId){
-    val key = getWeaponCompositionString(member, groupIndex)
-    if(key == "") return
-    if(!Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip.containsKey(shipKey)){
-        Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[shipKey] = mutableMapOf()
-    }
-    Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[shipKey]?.set(key, tags.toSet().toList())
-}
-
-private const val WEAPON_COMP_GLOBAL_KEY = "Global"
-
-fun persistTagsByWeaponCompositionGlobal(universalShipId: String, member: FleetMemberAPI, groupIndex: Int, loadoutIndex: Int, tags: List<String>){
-    persistTagsByWeaponComposition(universalShipId, member, groupIndex, loadoutIndex, tags, WEAPON_COMP_GLOBAL_KEY)
-}
-
-fun getWeaponCompositionString(member: FleetMemberAPI, groupIndex: Int): String{
-    return member.variant?.weaponGroups?.getOrNull(groupIndex)?.let { group ->
-         groupAsString(group, member, false)
-    } ?: ""
-}
-
 fun saveTagsInShip(ship: ShipAPI, groupIndex: Int, tags: List<String>, storageIndex: Int) {
     if (!ship.customData.containsKey(Values.CUSTOM_SHIP_DATA_WEAPONS_TAG_KEY)) {
         ship.setCustomData(Values.CUSTOM_SHIP_DATA_WEAPONS_TAG_KEY, InShipTagStorage())
     }
     (ship.customData[Values.CUSTOM_SHIP_DATA_WEAPONS_TAG_KEY] as? InShipTagStorage)?.tagsByIndex?.get(storageIndex)
-        ?.set(groupIndex, tags.toSet().toList())
+        ?.set(groupIndex, canonicalizeWeaponTagNames(tags))
 }
 
 
-fun loadPersistentTags(universalShipId: String, ship: FleetMemberAPI, groupIndex: Int, loadoutIndex: Int): List<String> {
-    if(universalShipId == "") return emptyList()
-    return when(Settings.tagStorageMode){
-        TagStorageModes.INDEX -> loadPersistentTagsByIndex(universalShipId, groupIndex, loadoutIndex)
-        TagStorageModes.WEAPON_COMPOSITION -> loadPersistentTagsByWeaponComposition(ship, universalShipId, groupIndex, loadoutIndex)
-        TagStorageModes.WEAPON_COMPOSITION_GLOBAL -> loadPersistentTagsByWeaponCompositionGlobal(ship, universalShipId, groupIndex, loadoutIndex)
-    }
-}
-
-fun loadPersistentTagsByIndex(universalShipId: String, groupIndex: Int, loadoutIndex: Int): List<String> {
-    return Settings.tagStorage[loadoutIndex].modesByShip[universalShipId]?.get(groupIndex) ?: emptyList()
-}
-
-fun loadPersistentTagsByWeaponComposition(member: FleetMemberAPI, universalShipId: String, groupIndex: Int, loadoutIndex: Int, shipKey: String = universalShipId): List<String>{
-    val key = getWeaponCompositionString(member, groupIndex)
-    if(key == "") return emptyList()
-    return Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[shipKey]?.get(key) ?: emptyList()
-}
-
-fun loadPersistentTagsByWeaponCompositionGlobal(member: FleetMemberAPI, universalShipId: String, groupIndex: Int, loadoutIndex: Int): List<String>{
-    return loadPersistentTagsByWeaponComposition(member, universalShipId, groupIndex, loadoutIndex,
-        WEAPON_COMP_GLOBAL_KEY
-    )
-}
-
-fun backupWeaponCompGlobalTagsToFile(file: String = Values.WEAPON_COMP_GLOBAL_TAGS_JSON_FILE_NAME, loadoutIndex: Int = Values.storageIndex){
-    saveJsonMapAsFile(file, Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[WEAPON_COMP_GLOBAL_KEY] ?: emptyMap())
-}
-
-fun restoreWeaponCompGlobalTagsFromFile(file: String = Values.WEAPON_COMP_GLOBAL_TAGS_JSON_FILE_NAME, loadoutIndex: Int = Values.storageIndex, override: Boolean = false){
-    val data = readJsonMapFromFile(file)
-    if(override){
-        Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[WEAPON_COMP_GLOBAL_KEY]?.clear()
-    }
-    if(!Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip.containsKey(WEAPON_COMP_GLOBAL_KEY)){
-        Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[WEAPON_COMP_GLOBAL_KEY] = mutableMapOf()
-    }
-    data.forEach{ (k, v) ->
-        Settings.tagStorageByWeaponComposition[loadoutIndex].modesByShip[WEAPON_COMP_GLOBAL_KEY]?.set(k, v.toSet().toList())
-    }
+fun loadPersistentTags(shipId: String, groupIndex: Int, loadoutIndex: Int): List<String> {
+    if(shipId == "") return emptyList()
+    val tags = Settings.tagStorage.getOrNull(loadoutIndex)?.modesByShip?.get(shipId)?.get(groupIndex)
+    return canonicalizeWeaponTagNames(tags ?: emptyList())
 }
 
 fun getWeaponGroupIndex(weapon: WeaponAPI): Int {
@@ -258,9 +293,9 @@ fun getWeaponGroupIndex(weapon: WeaponAPI): Int {
 }
 
 fun loadTagsFromShip(ship: ShipAPI, groupIndex: Int, storageIndex: Int): List<String> {
-    return (ship.customData[Values.CUSTOM_SHIP_DATA_WEAPONS_TAG_KEY] as? InShipTagStorage)?.tagsByIndex?.get(
+    return canonicalizeWeaponTagNames((ship.customData[Values.CUSTOM_SHIP_DATA_WEAPONS_TAG_KEY] as? InShipTagStorage)?.tagsByIndex?.get(
         storageIndex
-    )?.get(groupIndex) ?: emptyList()
+    )?.get(groupIndex) ?: emptyList())
 }
 
 fun doesShipHaveLocalTags(ship: ShipAPI, storageIndex: Int): Boolean {

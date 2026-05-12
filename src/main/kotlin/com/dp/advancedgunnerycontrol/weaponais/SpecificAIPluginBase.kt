@@ -15,8 +15,7 @@ import kotlin.math.PI
 import kotlin.math.min
 
 abstract class SpecificAIPluginBase(
-    val baseAI: AutofireAIPlugin,
-    private val customAIActive: Boolean = Settings.enableCustomAI()
+    val baseAI: AutofireAIPlugin
 ) : AutofireAIPlugin {
     protected var solution: FiringSolution? = null
     private var lastTargetEntity: CombatEntityAPI? = null
@@ -24,7 +23,7 @@ abstract class SpecificAIPluginBase(
     private val weapon = baseAI.weapon
     private var weaponShouldFire = false
     private var currentTgtLeadAcc = 1.0f
-    private var lastP0 = 0.0f
+    private var lastAdvanceAmount = 0.0f
 
     /**
      * @return a value dependent on distance and velocity of target. Lower is better
@@ -42,7 +41,7 @@ abstract class SpecificAIPluginBase(
      */
     protected abstract fun getRelevantEntitiesWithinRange(): List<CombatEntityAPI>
 
-    protected abstract fun getRelevenEntitiesOutOfRange(): List<CombatEntityAPI>
+    protected abstract fun getRelevantEntitiesOutOfRange(): List<CombatEntityAPI>
 
     /**
      * @return true if the target selected by the baseAI matches what the weapon should target
@@ -71,17 +70,17 @@ abstract class SpecificAIPluginBase(
         weaponShouldFire = false
     }
 
-    override fun advance(p0: Float) {
-        lastP0 = p0
+    override fun advance(amount: Float) {
+        lastAdvanceAmount = amount
         reset()
-        if (!advanceBaseAI(p0) && customAIActive && isBaseAIOverwritable()) {
+        if (!advanceBaseAI(amount) && Settings.enableCustomAI() && isBaseAIOverwritable()) {
             advanceWithCustomAI()
         }
     }
 
-    protected fun advanceBaseAI(p0: Float): Boolean {
+    protected fun advanceBaseAI(amount: Float): Boolean {
         if (Settings.forceCustomAI() && isBaseAIOverwritable()) return false
-        baseAI.advance(p0)
+        baseAI.advance(amount)
         val ship = baseAI.targetShip
         val missile = baseAI.targetMissile
         val targetEntity = ship as? CombatEntityAPI ?: missile as? CombatEntityAPI
@@ -94,24 +93,27 @@ abstract class SpecificAIPluginBase(
     }
 
     protected fun advanceWithCustomAI() {
-        var potentialTargets = calculateFiringSolutions(
+        var aimCandidates = calculateFiringSolutions(
             getRelevantEntitiesWithinRange().filter { isHostile(it) }
-        ).filter { isInRange(it.aimPoint, effectiveCollRadius(it.target)) } +
-                calculateFiringSolutions(getRelevenEntitiesOutOfRange().filter { isHostile(it) })
+        ) +
+                calculateFiringSolutions(getRelevantEntitiesOutOfRange().filter { isHostile(it) })
 
 
         val allies = getFriendlies()
 //        // TODO: It would be faster to get friendlies and foes in one go
         if (Settings.customAIFriendlyFireComplexity() >= 2) {
             // this is a deceptively expensive call (therefore locked behind opt-in setting)
-            potentialTargets = potentialTargets.filter { !isFriendlyFire(potentialTargets, allies, it.aimPoint) }
+            aimCandidates = aimCandidates.filter { !isFriendlyFire(aimCandidates, allies, it.aimPoint) }
         }
 
+        val firingCandidates = aimCandidates
+            .filter { isInRange(it.aimPoint, effectiveCollRadius(it.target)) }
 
 
-        solution = potentialTargets.minByOrNull { computeTargetPriority(it) }
+        val selectionCandidates = firingCandidates.ifEmpty { aimCandidates }
+        solution = selectionCandidates.minByOrNull { computeTargetPriority(it) }
 
-        computeIfShouldFire(potentialTargets, allies).let {
+        computeIfShouldFire(firingCandidates, allies).let {
             weaponShouldFire = it
         }
     }
@@ -140,15 +142,15 @@ abstract class SpecificAIPluginBase(
             return
         }
         currentTgtLeadAcc = if (currentTarget == lastTarget) {
-            min(currentTgtLeadAcc + 0.2f * lastP0, 1.0f)
+            min(currentTgtLeadAcc + 0.2f * lastAdvanceAmount, 1.0f)
         } else {
             weapon.ship?.mutableStats?.autofireAimAccuracy?.modifiedValue ?: 1.0f
         }
     }
 
-    protected fun compensateTargetPointShipSpeed(tgt: Vector2f, ttt: Float): Vector2f {
-        val vel = weapon.ship?.velocity ?: Vector2f(0.0f, 0.0f)
-        return tgt - (vel times_ ttt)
+    protected fun compensateTargetPointShipSpeed(targetPoint: Vector2f, travelTime: Float): Vector2f {
+        val shipVelocity = weapon.ship?.velocity ?: Vector2f(0.0f, 0.0f)
+        return targetPoint - (shipVelocity times_ travelTime)
     }
 
     // compensates for both player ship and target velocities
@@ -164,7 +166,7 @@ abstract class SpecificAIPluginBase(
     }
 
     override fun getTarget(): Vector2f? {
-        return solution?.aimPoint ?: getNeutralPosition(weapon)
+        return solution?.aimPoint?.let { weapon.coerceAimPointIntoArc(it) } ?: getNeutralPosition(weapon)
     }
 
     override fun getWeapon(): WeaponAPI {
@@ -181,27 +183,27 @@ abstract class SpecificAIPluginBase(
      * - acceleration refers to max possible acceleration, not current acceleration
      * conclusion: Don't use acceleration or angular velocity, they are unreliable
      */
-    protected fun computePointToAimAt(tgt: CombatEntityAPI): Vector2f {
+    protected fun computePointToAimAt(targetEntity: CombatEntityAPI): Vector2f {
         if (!isAimable(weapon)) {
             return getNeutralPosition(weapon)
         }
-        var tgtPoint = tgt.location
+        var targetPoint = targetEntity.location
         // no need to compute stuff for beam or non-aimable weapons
         if (weapon.isBeam || weapon.isBurstBeam) {
-            return tgtPoint
+            return targetPoint
         }
 
         for (i in 0 until Settings.customAIRecursionLevel()) {
-            val travelT = computeTimeToTravel(tgtPoint)
+            val travelTime = computeTimeToTravel(targetPoint)
 
-            val velocityOffset = (tgt.velocity) times_ travelT
-            tgtPoint = compensateTargetPointShipSpeed(tgt.location + velocityOffset, travelT)
+            val velocityOffset = (targetEntity.velocity) times_ travelTime
+            targetPoint = compensateTargetPointShipSpeed(targetEntity.location + velocityOffset, travelTime)
         }
-        return tgtPoint
+        return targetPoint
     }
 
-    protected fun computeTimeToTravel(tgt: Vector2f): Float {
-        return computeTimeToTravel(weapon, tgt, (1.5f - 0.5f * currentTgtLeadAcc))
+    protected fun computeTimeToTravel(targetPoint: Vector2f): Float {
+        return computeTimeToTravel(weapon, targetPoint, (1.5f - 0.5f * currentTgtLeadAcc))
     }
 
     override fun getTargetShip(): ShipAPI? {
@@ -220,7 +222,7 @@ abstract class SpecificAIPluginBase(
     protected fun isWithinArc(position: Vector2f, radius: Float): Boolean {
         // Note: This is using an approximated angle, which should be fine as angles should be rather small
         return weapon.distanceFromArc(position) <=
-                (radius / (weapon.location - position).length()) * 180f / PI * aimingToleranceFactor
+                (radius / (weapon.location - position).length()) * 180f / PI * aimingToleranceFactor()
     }
 
     protected open fun shouldConsiderNeutralsAsFriendlies(): Boolean = true
@@ -319,7 +321,7 @@ abstract class SpecificAIPluginBase(
         potentialTargets.asSequence().filter { isInRange(it.aimPoint, effectiveCollRadius(it.target)) }.iterator()
             .forEach {
                 val effectiveCollisionRadius =
-                    effectiveCollRadius(it.target) * aimingToleranceFactor + aimingToleranceFlat
+                    effectiveCollRadius(it.target) * aimingToleranceFactor() + aimingToleranceFlat()
                 if (determineIfShotWillHitBySetting(it.target, it.aimPoint, effectiveCollisionRadius, weapon)) return true
             }
 
@@ -364,7 +366,7 @@ abstract class SpecificAIPluginBase(
     }
 
     companion object {
-        protected val aimingToleranceFactor = 1.0f * Settings.customAITriggerHappiness()
-        protected val aimingToleranceFlat = 10f * Settings.customAITriggerHappiness()
+        protected fun aimingToleranceFactor(): Float = 1.0f * Settings.customAITriggerHappiness()
+        protected fun aimingToleranceFlat(): Float = 10f * Settings.customAITriggerHappiness()
     }
 }

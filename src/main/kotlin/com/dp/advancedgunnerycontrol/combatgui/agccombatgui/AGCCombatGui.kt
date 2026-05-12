@@ -46,7 +46,7 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
     private val tagListView = TagListView()
     private val shipAiModesText : String by object {
         operator fun getValue(thisRef: Any?, property: KProperty<*>) : String{
-            return if(Settings.isAdvancedMode) "Ship AI Modes" else ""
+            return "Ship AI Modes"
         }
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: String){
         }
@@ -137,9 +137,9 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
         fun updateSimpleAdvancedTexts() {
             simpleAdvancedButtonInfo.txt = if (Settings.isAdvancedMode) "To Simple" else "To Advanced"
             simpleAdvancedButtonInfo.tooltip.txt = if (Settings.isAdvancedMode) {
-                "Switch to simple mode, displaying less tags"
+                "Switch to simple mode, displaying fewer tags and ship modes"
             } else {
-                "Switch to advanced mode, showing more tags"
+                "Switch to advanced mode, showing more tags and ship modes"
             }
         }
         updateSimpleAdvancedTexts()
@@ -152,7 +152,7 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
                 // this isn't pretty and will break if I ever add another button group...
                 // TODO: Maybe add IDs to button groups?
                 buttonGroups.last().descriptionText = shipAiModesText
-                ship.fleetMember?.let { Settings.hotAddTags(loadAllTags(it, generateUniversalFleetMemberId(ship))) }
+                ship.fleetMember?.let { Settings.hotAddTags(loadAllTags(it, agcStableShipId(ship))) }
                 reRenderButtonGroups()
             }
         }
@@ -162,9 +162,9 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
         val suggestedModeAction = object : MagicCombatButtonAction{
             override fun execute() {
                 if(ship.fleetMember == null) return
-                applySuggestedModes(ship.fleetMember, Values.storageIndex, true, generateUniversalFleetMemberId(ship))
+                applySuggestedModes(ship.fleetMember, Values.storageIndex, true, agcStableShipId(ship))
                 reloadAllShips(Values.storageIndex)
-                ship.fleetMember.let { Settings.hotAddTags(loadAllTags(it, generateUniversalFleetMemberId(ship))) }
+                ship.fleetMember.let { Settings.hotAddTags(loadAllTags(it, agcStableShipId(ship))) }
                 refreshButtons()
                 reRenderButtonGroups()
             }
@@ -173,8 +173,8 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
         addButton(suggestedModeAction, "Suggested",
             "Apply suggested modes to all weapon groups." +
                     "\nOnly works for vanilla weapons and mods that provide suggested modes." +
-                    "\nNote: In simple mode, some added tags might be invisible. " +
-                    "Switch to advanced mode to see all tags")
+                    "\nNote: In simple mode, some added tags or ship modes might be invisible. " +
+                    "Switch to advanced mode to see all tags and ship modes.")
     }
 
     override fun advance() {
@@ -191,7 +191,7 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
     }
 
     private fun initializeUi() {
-        ship.fleetMember?.let { Settings.hotAddTags(loadAllTags(it, generateUniversalFleetMemberId(ship))) }
+        ship.fleetMember?.let { Settings.hotAddTags(loadAllTags(it, agcStableShipId(ship))) }
 
         for (i in 0 until (ship.variant.weaponGroups?.filter { it.slots?.size != 0 }?.size ?: 0)) {
             addButtonGroup(

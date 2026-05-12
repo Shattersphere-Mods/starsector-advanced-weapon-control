@@ -17,31 +17,34 @@ val magicKeyToType = mapOf(
 
 fun determineTagsByWeaponFromCustomData(ship: ShipAPI): Map<WeaponAPI, List<String>> {
     if (!ship.customData.containsKey(Values.CUSTOM_SHIP_DATA_OPTIONS_TO_APPLY_KEY)) return emptyMap()
-    val opts = (ship.customData[Values.CUSTOM_SHIP_DATA_OPTIONS_TO_APPLY_KEY] as? Map<*, *>)
+    val optionTagEntries = (ship.customData[Values.CUSTOM_SHIP_DATA_OPTIONS_TO_APPLY_KEY] as? Map<*, *>)
         ?.filter { mapPair -> mapPair.key is String && (mapPair.value as? List<*>)?.all { it is String } == true }
         ?: return emptyMap()
 
-    val toReturn = mutableMapOf<WeaponAPI, MutableSet<String>>()
-    opts.forEach { m ->
+    val tagsByWeapon = mutableMapOf<WeaponAPI, MutableSet<String>>()
+    optionTagEntries.forEach { optionEntry ->
         when {
-            magicKeyToType.containsKey(m.key) -> {
-                ship.allWeapons.filter { it.type == magicKeyToType[m.key] }.forEach { w ->
-                    val tags = (m.value as? List<*>)?.filterIsInstance<String>() ?: listOf()
-                    toReturn.getOrPut(w) { mutableSetOf() }.addAll(tags)
+            magicKeyToType.containsKey(optionEntry.key) -> {
+                ship.allWeapons.filter { it.type == magicKeyToType[optionEntry.key] }.forEach { weapon ->
+                    val tags = (optionEntry.value as? List<*>)?.filterIsInstance<String>() ?: listOf()
+                    tagsByWeapon.getOrPut(weapon) { mutableSetOf() }.addAll(tags)
                 }
             }
 
-            m.key is String -> {
-                val k = m.key as? String ?: ""
-                ship.allWeapons.filter { it.id == k || Regex(k).matches(it.id) }.forEach { w ->
-                    val tags = (m.value as? List<*>)?.filterIsInstance<String>() ?: listOf()
-                    toReturn.getOrPut(w) { mutableSetOf() }.addAll(tags)
+            optionEntry.key is String -> {
+                val weaponIdOrPattern = optionEntry.key as? String ?: ""
+                val weaponIdPattern = runCatching { Regex(weaponIdOrPattern) }.getOrNull()
+                ship.allWeapons.filter { weapon ->
+                    weapon.id == weaponIdOrPattern || weaponIdPattern?.matches(weapon.id) == true
+                }.forEach { weapon ->
+                    val tags = (optionEntry.value as? List<*>)?.filterIsInstance<String>() ?: listOf()
+                    tagsByWeapon.getOrPut(weapon) { mutableSetOf() }.addAll(tags)
                 }
             }
         }
     }
 
-    return toReturn.mapValues { it.value.toList() }
+    return tagsByWeapon.mapValues { it.value.toList() }
 }
 
 fun determineShipModesFromCustomData(ship: ShipAPI): List<String>{

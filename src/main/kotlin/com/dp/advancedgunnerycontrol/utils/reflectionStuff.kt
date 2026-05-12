@@ -1,15 +1,11 @@
 package com.dp.advancedgunnerycontrol.utils
 
 import com.fs.starfarer.api.Global
-import java.lang.RuntimeException
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 
 
 class AdvancedGunneryControlLogClass
-
-// will randomly throw exceptions when set to true
-const val TEST_MODE = false
 
 fun getFieldsByName(fieldName: String, instanceToGetFrom: Any, narrativeContext: String? = null): List<Any?> {
     try {
@@ -18,21 +14,19 @@ fun getFieldsByName(fieldName: String, instanceToGetFrom: Any, narrativeContext:
         val getNameMethod = MethodHandles.lookup().findVirtual(fieldClass, "getName", MethodType.methodType(String::class.java))
         val setAccessMethod = MethodHandles.lookup().findVirtual(fieldClass,"setAccessible", MethodType.methodType(Void.TYPE, Boolean::class.javaPrimitiveType))
 
-        throwOccasionally()
-
-        val instancesOfFields: Array<out Any> = instanceToGetFrom.javaClass.declaredFields
-        val toReturn = mutableListOf<Any?>()
-        for (obj in instancesOfFields)
+        val reflectedFields: Array<out Any> = instanceToGetFrom.javaClass.declaredFields
+        val matchingValues = mutableListOf<Any?>()
+        for (field in reflectedFields)
         {
-            setAccessMethod.invoke(obj, true)
-            val name = getNameMethod.invoke(obj)
+            setAccessMethod.invoke(field, true)
+            val name = getNameMethod.invoke(field)
             if (name.toString() == fieldName)
             {
-                val x = getMethod.invoke(obj, instanceToGetFrom)
-                toReturn.add(x)
+                val fieldValue = getMethod.invoke(field, instanceToGetFrom)
+                matchingValues.add(fieldValue)
             }
         }
-        return toReturn
+        return matchingValues
     }catch (e: Exception){
         Global.getLogger(AdvancedGunneryControlLogClass().javaClass).error(
             "Tried to get fields named $fieldName of object of type ${instanceToGetFrom.javaClass}." +
@@ -54,21 +48,19 @@ fun getFieldsByTypeName(typeNameContains: String, instanceToGetFrom: Any, narrat
         val getTypeMethod = MethodHandles.lookup().findVirtual(fieldClass, "getType", MethodType.methodType(Class::class.java))
         val setAccessMethod = MethodHandles.lookup().findVirtual(fieldClass,"setAccessible", MethodType.methodType(Void.TYPE, Boolean::class.javaPrimitiveType))
 
-        throwOccasionally()
-
-        val instancesOfFields: Array<out Any> = instanceToGetFrom.javaClass.declaredFields
-        val toReturn = mutableListOf<Any?>()
-        for (obj in instancesOfFields)
+        val reflectedFields: Array<out Any> = instanceToGetFrom.javaClass.declaredFields
+        val matchingValues = mutableListOf<Any?>()
+        for (field in reflectedFields)
         {
-            setAccessMethod.invoke(obj, true)
-            val type = getTypeMethod.invoke(obj)
+            setAccessMethod.invoke(field, true)
+            val type = getTypeMethod.invoke(field)
             if (type.toString().contains(typeNameContains))
             {
-                val x = getMethod.invoke(obj, instanceToGetFrom)
-                toReturn.add(x)
+                val fieldValue = getMethod.invoke(field, instanceToGetFrom)
+                matchingValues.add(fieldValue)
             }
         }
-        return toReturn
+        return matchingValues
     }catch (e: Exception){
         Global.getLogger(AdvancedGunneryControlLogClass().javaClass).error(
             "Tried to get fields of types that contain $typeNameContains of object of type ${instanceToGetFrom.javaClass}." +
@@ -87,10 +79,8 @@ fun getMethodNames(instanceToGetFrom: Any, narrativeContext: String? = null): Li
         val methodClass = Class.forName("java.lang.reflect.Method", false, Class::class.java.classLoader)
         val getNameMethod = MethodHandles.lookup().findVirtual(methodClass, "getName", MethodType.methodType(String::class.java))
 
-        throwOccasionally()
-
-        val instancesOfFields: Array<out Any> = instanceToGetFrom.javaClass.getDeclaredMethods()
-        instancesOfFields.map { getNameMethod.invoke(it) as? String }
+        val reflectedMethods: Array<out Any> = instanceToGetFrom.javaClass.getDeclaredMethods()
+        reflectedMethods.map { getNameMethod.invoke(it) as? String }
     }catch (e: Throwable){
         Global.getLogger(AdvancedGunneryControlLogClass().javaClass).error(
             "Tried to get method names of object of type ${instanceToGetFrom.javaClass}." +
@@ -116,8 +106,6 @@ fun invokeMethodByName(methodName: String, instance: Any, vararg arguments: Any?
         val methodClass = Class.forName("java.lang.reflect.Method", false, Class::class.java.classLoader)
         val getNameMethod = MethodHandles.lookup().findVirtual(methodClass, "getName", MethodType.methodType(String::class.java))
         val invokeMethod = MethodHandles.lookup().findVirtual(methodClass, "invoke", MethodType.methodType(Any::class.java, Any::class.java, Array<Any>::class.java))
-
-        throwOccasionally()
 
         var exception: Throwable? = null
 
@@ -179,8 +167,6 @@ fun invokeMethodThatReturnsType(instance: Any, returnTypeNameContains: String, v
         val getReturnTypeMethod = MethodHandles.lookup().findVirtual(methodClass, "getReturnType", MethodType.methodType(Class::class.java))
         val invokeMethod = MethodHandles.lookup().findVirtual(methodClass, "invoke", MethodType.methodType(Any::class.java, Any::class.java, Array<Any>::class.java))
 
-        throwOccasionally()
-
         var foundMethod: Any? = null
 
         for (method in instance::class.java.declaredMethods as Array<Any>)
@@ -202,9 +188,4 @@ fun invokeMethodThatReturnsType(instance: Any, returnTypeNameContains: String, v
         }
         return null
     }
-}
-
-fun throwOccasionally(){
-    if(!TEST_MODE) return
-    if(Math.random() < 0.05f) throw RuntimeException("This is a randomly thrown exception used for testing. This shouldn't happen in a release build.")
 }
