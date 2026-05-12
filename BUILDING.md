@@ -22,7 +22,7 @@ Most build and contributor settings live in one file:
 development.properties
 ```
 
-The file is ordered from most to least important. For first-time setup, check the `starsector.defaultDir` value first, then the version/release values if you are preparing a release.
+The file is ordered from most to least important. For first-time setup, check the `starsector.defaultDirs` fallback list first, then the version/release values if you are preparing a release.
 
 If you want a private machine-specific Starsector path without editing the shared config, use one of these overrides.
 
@@ -59,7 +59,7 @@ Path priority is:
 1. `-PstarsectorDir=...`
 2. `STARSECTOR_DIRECTORY=...`
 3. `local.properties` key `starsector.dir=...`
-4. `development.properties` key `starsector.defaultDir=...`, if it exists.
+4. `development.properties` key `starsector.defaultDirs=...`, using the first existing path.
 
 ## Build
 
@@ -115,7 +115,7 @@ It excludes VCS, IDE, Gradle cache/wrapper, build output, local path settings, a
 
 ### Starsector directory not configured
 
-Set `STARSECTOR_DIRECTORY`, pass `-PstarsectorDir=...`, create `local.properties`, or update `starsector.defaultDir` in `development.properties`.
+Set `STARSECTOR_DIRECTORY`, pass `-PstarsectorDir=...`, create `local.properties`, or update `starsector.defaultDirs` in `development.properties`.
 
 ### Could not find Starsector core jars
 

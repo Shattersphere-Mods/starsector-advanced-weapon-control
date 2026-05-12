@@ -31,6 +31,13 @@ fun configuredList(name: String): List<String> =
         .map { it.trim() }
         .filter { it.isNotEmpty() }
 
+fun optionalConfiguredList(name: String): List<String> =
+    optionalConfiguredProperty(name)
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        .orEmpty()
+
 fun localProperty(name: String): String? =
     localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
 
@@ -40,16 +47,45 @@ fun gradleProperty(name: String): String? =
 fun environmentVariable(name: String): String? =
     System.getenv(name)?.takeIf { it.isNotBlank() }
 
-fun existingLocalPath(path: String): String? =
-    path.takeIf { file(it).isDirectory }
+fun expandUserPath(path: String): String {
+    val home = System.getProperty("user.home")
+        ?: environmentVariable("HOME")
+        ?: environmentVariable("USERPROFILE")
+    return when {
+        home == null -> path
+        path == "~" -> home
+        path.startsWith("~/") || path.startsWith("~\\") -> File(home, path.substring(2)).path
+        else -> path
+    }
+}
 
-val defaultStarsectorDirectoryPath = configuredProperty("starsector.defaultDir")
+fun hasStarsectorCoreJars(dir: File): Boolean =
+    File(dir, "starfarer.api.jar").isFile &&
+            File(dir, "starfarer_obf.jar").isFile &&
+            File(dir, "fs.common_obf.jar").isFile
+
+fun existingStarsectorRoot(path: String): String? {
+    val root = file(expandUserPath(path))
+    if (!root.isDirectory) return null
+    val nestedCore = File(root, "starsector-core")
+    return when {
+        hasStarsectorCoreJars(nestedCore) || hasStarsectorCoreJars(root) -> root.absolutePath
+        else -> null
+    }
+}
+
+val defaultStarsectorDirectoryPaths =
+    optionalConfiguredList("starsector.defaultDirs") +
+            optionalConfiguredProperty("starsector.defaultDir").let { if (it == null) emptyList() else listOf(it) }
+
+val detectedDefaultStarsectorDirectoryPath =
+    defaultStarsectorDirectoryPaths.firstNotNullOfOrNull(::existingStarsectorRoot)
 
 val starsectorDirectoryPath: String =
     gradleProperty("starsectorDir")
         ?: environmentVariable("STARSECTOR_DIRECTORY")
         ?: localProperty("starsector.dir")
-        ?: existingLocalPath(defaultStarsectorDirectoryPath)
+        ?: detectedDefaultStarsectorDirectoryPath
         ?: error(
             """
             Starsector directory not configured.
@@ -62,17 +98,12 @@ val starsectorDirectoryPath: String =
             Or edit the shared default in:
               ${developmentConfigFile.absolutePath}
 
-            The default local path is also used automatically if it exists:
-              $defaultStarsectorDirectoryPath
+            These default local paths are also used automatically if one exists:
+              ${defaultStarsectorDirectoryPaths.joinToString("\n              ").ifBlank { "(none configured)" }}
 
             The directory must contain either starsector-core/ or the Starsector core jars.
             """.trimIndent()
         )
-
-fun hasStarsectorCoreJars(dir: File): Boolean =
-    File(dir, "starfarer.api.jar").isFile &&
-            File(dir, "starfarer_obf.jar").isFile &&
-            File(dir, "fs.common_obf.jar").isFile
 
 fun resolveStarsectorCoreDirectory(root: File): File {
     val nested = File(root, "starsector-core")
