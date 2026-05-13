@@ -1,9 +1,12 @@
 package com.dp.advancedgunnerycontrol.weaponais.tags
 
+import com.dp.advancedgunnerycontrol.config.*
+import com.dp.advancedgunnerycontrol.customlists.*
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.shipmodes.*
+import com.dp.advancedgunnerycontrol.weapontags.*
+
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.assignShipModes
-import com.dp.advancedgunnerycontrol.typesandvalues.getCustomShipAI
-import com.dp.advancedgunnerycontrol.typesandvalues.hasCustomAI
 import com.dp.advancedgunnerycontrol.weaponais.FiringSolution
 import com.dp.advancedgunnerycontrol.weaponais.TagBasedAI
 import com.dp.advancedgunnerycontrol.weaponais.isPD

@@ -1,7 +1,7 @@
 package com.dp.advancedgunnerycontrol.weaponais.shipais
 
-import com.dp.advancedgunnerycontrol.utils.hasAgcTag
-import com.dp.advancedgunnerycontrol.utils.hasAnyAgcTag
+import com.dp.advancedgunnerycontrol.shipdata.hasAgcTag
+import com.dp.advancedgunnerycontrol.shipdata.hasAnyAgcTag
 import com.dp.advancedgunnerycontrol.weaponais.determineUniversalShipTarget
 import com.dp.advancedgunnerycontrol.weaponais.isPD
 import com.fs.starfarer.api.combat.ShipAPI

@@ -1,6 +1,7 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
+
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 import com.fs.starfarer.api.Global
 import org.lwjgl.input.Keyboard
 

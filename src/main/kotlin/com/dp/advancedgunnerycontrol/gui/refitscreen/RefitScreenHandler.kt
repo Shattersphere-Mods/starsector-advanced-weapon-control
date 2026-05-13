@@ -1,10 +1,11 @@
 package com.dp.advancedgunnerycontrol.gui.refitscreen
 
-import com.dp.advancedgunnerycontrol.gui.DirectShipEditorPanel
+
+import com.dp.advancedgunnerycontrol.gui.entrypoints.DirectShipEditorPanel
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.utils.getChildren
-import com.dp.advancedgunnerycontrol.utils.hasMethodNamed
-import com.dp.advancedgunnerycontrol.utils.invokeMethodByName
+import com.dp.advancedgunnerycontrol.reflection.getChildren
+import com.dp.advancedgunnerycontrol.reflection.hasMethodNamed
+import com.dp.advancedgunnerycontrol.reflection.invokeMethodByName
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.campaign.CoreUITabId
 import com.fs.starfarer.api.combat.ShipAPI

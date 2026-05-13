@@ -1,7 +1,12 @@
 package com.dp.advancedgunnerycontrol.weaponais.tags
 
+import com.dp.advancedgunnerycontrol.config.*
+import com.dp.advancedgunnerycontrol.customlists.*
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.shipmodes.*
+import com.dp.advancedgunnerycontrol.weapontags.*
+
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
 import com.dp.advancedgunnerycontrol.weaponais.FiringSolution
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.combat.CombatEngineAPI

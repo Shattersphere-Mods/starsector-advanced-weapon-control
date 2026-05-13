@@ -1,10 +1,11 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.CampaignTooltipCopy
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.typesandvalues.CustomWeaponTagListStore
-import com.dp.advancedgunnerycontrol.typesandvalues.WeaponTagListMode
-import com.dp.advancedgunnerycontrol.utils.ShipEditorPersistenceContext
+import com.dp.advancedgunnerycontrol.gui.controls.text.CampaignTooltipCopy
+
+import com.dp.advancedgunnerycontrol.customlists.CustomWeaponTagListStore
+import com.dp.advancedgunnerycontrol.customlists.WeaponTagListMode
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
+import com.dp.advancedgunnerycontrol.shipdata.ShipEditorPersistenceContext
 
 class CycleTagListModeAction(attributes: GUIAttributes) : GUIAction(attributes) {
     companion object {

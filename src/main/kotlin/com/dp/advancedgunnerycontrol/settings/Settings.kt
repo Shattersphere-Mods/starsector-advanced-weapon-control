@@ -1,13 +1,12 @@
 package com.dp.advancedgunnerycontrol.settings
 
-import com.dp.advancedgunnerycontrol.typesandvalues.ShipModes
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
-import com.dp.advancedgunnerycontrol.typesandvalues.WeaponTagListMode
-import com.dp.advancedgunnerycontrol.typesandvalues.canonicalizeWeaponTagNames
-import com.dp.advancedgunnerycontrol.typesandvalues.clearEditableWeaponTagDefinitionCaches
-import com.dp.advancedgunnerycontrol.typesandvalues.clearWeaponTagNameCaches
-import com.dp.advancedgunnerycontrol.typesandvalues.parseShipMode
-import com.dp.advancedgunnerycontrol.utils.StorageBaseIntKey
+import com.dp.advancedgunnerycontrol.config.*
+import com.dp.advancedgunnerycontrol.customlists.*
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.shipmodes.*
+import com.dp.advancedgunnerycontrol.weapontags.*
+
+import com.dp.advancedgunnerycontrol.persistence.StorageBaseIntKey
 import com.fs.starfarer.api.Global
 import org.lwjgl.input.Keyboard
 import org.magiclib.combatgui.buttons.MagicCombatButtonBase

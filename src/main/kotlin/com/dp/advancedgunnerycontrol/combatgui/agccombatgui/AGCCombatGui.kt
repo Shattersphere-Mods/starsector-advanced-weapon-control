@@ -1,17 +1,25 @@
 package com.dp.advancedgunnerycontrol.combatgui.agccombatgui
 
-
+import com.dp.advancedgunnerycontrol.config.Values
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.settings.Settings
+import com.dp.advancedgunnerycontrol.shipdata.agcStableShipId
+import com.dp.advancedgunnerycontrol.shipdata.applyTagsToWeaponGroup
+import com.dp.advancedgunnerycontrol.shipdata.groupAsString
+import com.dp.advancedgunnerycontrol.shipdata.loadAllTags
+import com.dp.advancedgunnerycontrol.shipdata.persistTemporaryShipData
+import com.dp.advancedgunnerycontrol.shipdata.reloadAllShips
+import com.dp.advancedgunnerycontrol.shipdata.saveTags
+import com.dp.advancedgunnerycontrol.shipmodes.assignShipModes
+import com.dp.advancedgunnerycontrol.shipmodes.saveShipModes
+import com.dp.advancedgunnerycontrol.weapontags.applySuggestedWeaponTags
+import com.fs.starfarer.api.Global
+import com.fs.starfarer.api.combat.ShipAPI
 import org.magiclib.combatgui.MagicCombatGuiBase
 import org.magiclib.combatgui.MagicCombatRenderShapes.Highlight
 import org.magiclib.combatgui.MagicCombatRenderShapes.renderHighlights
-import org.magiclib.combatgui.buttons.MagicCombatButtonAction
 import org.magiclib.combatgui.buttons.MagicCombatActionButton
-import com.dp.advancedgunnerycontrol.gui.groupAsString
-import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.*
-import com.dp.advancedgunnerycontrol.utils.*
-import com.fs.starfarer.api.Global
-import com.fs.starfarer.api.combat.ShipAPI
+import org.magiclib.combatgui.buttons.MagicCombatButtonAction
 import kotlin.math.max
 import kotlin.reflect.KProperty
 
@@ -158,11 +166,11 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
         }
         addCustomButton(MagicCombatActionButton(simpleAdvancedAction, simpleAdvancedButtonInfo))
 
-        // Suggested modes Button
-        val suggestedModeAction = object : MagicCombatButtonAction{
+        // Suggested tags Button
+        val suggestedTagsAction = object : MagicCombatButtonAction{
             override fun execute() {
                 if(ship.fleetMember == null) return
-                applySuggestedModes(ship.fleetMember, Values.storageIndex, true, agcStableShipId(ship))
+                applySuggestedWeaponTags(ship.fleetMember, Values.storageIndex, true, agcStableShipId(ship))
                 reloadAllShips(Values.storageIndex)
                 ship.fleetMember.let { Settings.hotAddTags(loadAllTags(it, agcStableShipId(ship))) }
                 refreshButtons()
@@ -170,9 +178,9 @@ class AGCCombatGui(private val ship: ShipAPI, private val campaignMode: Boolean 
             }
 
         }
-        addButton(suggestedModeAction, "Suggested",
-            "Apply suggested modes to all weapon groups." +
-                    "\nOnly works for vanilla weapons and mods that provide suggested modes." +
+        addButton(suggestedTagsAction, "Suggested",
+            "Apply suggested tags to all weapon groups." +
+                    "\nOnly works for vanilla weapons and mods that provide suggested tags." +
                     "\nNote: In simple mode, some added tags or ship modes might be invisible. " +
                     "Switch to advanced mode to see all tags and ship modes.")
     }

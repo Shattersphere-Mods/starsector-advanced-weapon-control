@@ -1,6 +1,7 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
+
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 import com.dp.advancedgunnerycontrol.settings.Settings
 
 class ToggleSimpleAdvancedAction(attributes: GUIAttributes) : GUIAction(attributes) {

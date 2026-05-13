@@ -1,6 +1,6 @@
 package com.dp.advancedgunnerycontrol
 
-import com.dp.advancedgunnerycontrol.gui.GUIShower
+import com.dp.advancedgunnerycontrol.gui.entrypoints.GUIShower
 import com.dp.advancedgunnerycontrol.settings.LunaSettingHandler
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.dp.advancedgunnerycontrol.settings.addLunaSettingListener

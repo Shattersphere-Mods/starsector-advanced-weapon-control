@@ -1,7 +1,8 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.CustomListModalMode
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
+
+import com.dp.advancedgunnerycontrol.gui.session.CustomListModalMode
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 
 class OpenDebugMenuAction(attributes: GUIAttributes) : GUIAction(attributes) {
     override fun execute() {

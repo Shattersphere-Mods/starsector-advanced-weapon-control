@@ -1,11 +1,11 @@
 package com.dp.advancedgunnerycontrol.weaponais.tags
 
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.utils.FluxComparator
-import com.dp.advancedgunnerycontrol.utils.FluxCondition
-import com.dp.advancedgunnerycontrol.utils.FluxMetric
-import com.dp.advancedgunnerycontrol.utils.meetsFluxCondition
-import com.dp.advancedgunnerycontrol.utils.totalFluxBelowThreshold
+import com.dp.advancedgunnerycontrol.combat.FluxComparator
+import com.dp.advancedgunnerycontrol.combat.FluxCondition
+import com.dp.advancedgunnerycontrol.combat.FluxMetric
+import com.dp.advancedgunnerycontrol.combat.meetsFluxCondition
+import com.dp.advancedgunnerycontrol.combat.totalFluxBelowThreshold
 import com.dp.advancedgunnerycontrol.weaponais.FiringSolution
 import com.dp.advancedgunnerycontrol.weaponais.RecentBeamPressureTracker
 import com.fs.starfarer.api.combat.CombatEntityAPI

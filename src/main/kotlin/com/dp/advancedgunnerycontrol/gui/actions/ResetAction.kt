@@ -1,12 +1,12 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.AGCGUI
-import com.dp.advancedgunnerycontrol.gui.CampaignConfirmationTone
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
+import com.dp.advancedgunnerycontrol.config.Values
+import com.dp.advancedgunnerycontrol.gui.entrypoints.AGCGUI
+import com.dp.advancedgunnerycontrol.gui.modals.CampaignConfirmationTone
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.utils.agcStableShipId
-import com.dp.advancedgunnerycontrol.utils.persistTags
+import com.dp.advancedgunnerycontrol.shipdata.agcStableShipId
+import com.dp.advancedgunnerycontrol.shipdata.persistTags
 import org.lwjgl.input.Keyboard
 
 class ResetAction(attributes: GUIAttributes) : GUIAction(attributes) {

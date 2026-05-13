@@ -1,10 +1,10 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.AGCGUI.Companion.storageIndex
-import com.dp.advancedgunnerycontrol.gui.CustomListModalMode
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
+import com.dp.advancedgunnerycontrol.config.Values
+import com.dp.advancedgunnerycontrol.gui.entrypoints.AGCGUI.Companion.storageIndex
+import com.dp.advancedgunnerycontrol.gui.session.CustomListModalMode
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
 import org.lwjgl.input.Keyboard
 
 class CycleLoadoutAction(attributes: GUIAttributes) : GUIAction(attributes) {

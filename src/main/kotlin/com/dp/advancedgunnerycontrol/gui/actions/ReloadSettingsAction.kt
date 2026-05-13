@@ -1,11 +1,11 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.AGCGUI
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.gui.ShipViewHotTagCache
+import com.dp.advancedgunnerycontrol.config.Values
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.gui.entrypoints.AGCGUI
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
+import com.dp.advancedgunnerycontrol.gui.session.ShipViewHotTagCache
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.TagListView
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
 
 class ReloadSettingsAction(attributes: GUIAttributes) : GUIAction(attributes) {
     override fun execute() {

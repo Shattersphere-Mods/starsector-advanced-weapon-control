@@ -1,11 +1,16 @@
 package com.dp.advancedgunnerycontrol.weaponais
 
+import com.dp.advancedgunnerycontrol.config.*
+import com.dp.advancedgunnerycontrol.customlists.*
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.shipmodes.*
+import com.dp.advancedgunnerycontrol.weapontags.*
+
 // Notes:
 // Initially I was unaware that the player ship's current velocity affects targeting, so some of the code here is a bit patchy
 // Most of the time a "angular distance", i.e. the sin, is used instead of angles in calculations, as sin(x) ~= x for small angles
 
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.Values
 import com.fs.starfarer.api.combat.*
 import org.lazywizard.lazylib.combat.CombatUtils
 import org.lazywizard.lazylib.ext.minus

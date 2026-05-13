@@ -2,12 +2,26 @@
 
 package com.dp.advancedgunnerycontrol
 
-import com.dp.advancedgunnerycontrol.gui.DirectShipEditorPanel
+import com.dp.advancedgunnerycontrol.config.*
+import com.dp.advancedgunnerycontrol.customlists.*
+import com.dp.advancedgunnerycontrol.gui.session.TagListView
+import com.dp.advancedgunnerycontrol.shipmodes.*
+import com.dp.advancedgunnerycontrol.weapontags.*
+
+import com.dp.advancedgunnerycontrol.gui.entrypoints.DirectShipEditorPanel
 import com.dp.advancedgunnerycontrol.keyboardinput.ControlEventType
 import com.dp.advancedgunnerycontrol.keyboardinput.KeyStatusManager
+import com.dp.advancedgunnerycontrol.reflection.getFieldsByName
+import com.dp.advancedgunnerycontrol.reflection.invokeMethodByName
+import com.dp.advancedgunnerycontrol.reflection.invokeMethodThatReturnsType
 import com.dp.advancedgunnerycontrol.settings.Settings
-import com.dp.advancedgunnerycontrol.typesandvalues.*
-import com.dp.advancedgunnerycontrol.utils.*
+import com.dp.advancedgunnerycontrol.shipdata.DeploymentChecker
+import com.dp.advancedgunnerycontrol.shipdata.applyTagsToWeapon
+import com.dp.advancedgunnerycontrol.shipdata.determineShipModesFromCustomData
+import com.dp.advancedgunnerycontrol.shipdata.determineTagsByWeaponFromCustomData
+import com.dp.advancedgunnerycontrol.shipdata.getAutofirePlugin
+import com.dp.advancedgunnerycontrol.shipdata.reloadAllShips
+import com.dp.advancedgunnerycontrol.shipdata.reloadShips
 import com.dp.advancedgunnerycontrol.weaponais.RecentBeamPressureTracker
 import com.dp.advancedgunnerycontrol.weaponais.TagBasedAI
 import com.dp.advancedgunnerycontrol.weaponais.tags.DisableTagsToggleResult

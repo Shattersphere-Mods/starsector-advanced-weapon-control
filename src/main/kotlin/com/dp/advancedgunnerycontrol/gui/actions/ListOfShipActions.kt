@@ -1,8 +1,8 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.gui.CampaignActionButtonKind
-import com.dp.advancedgunnerycontrol.gui.ShipEditorCapabilities
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
+import com.dp.advancedgunnerycontrol.gui.session.ShipEditorCapabilities
+import com.dp.advancedgunnerycontrol.gui.style.CampaignActionButtonKind
 import com.dp.advancedgunnerycontrol.settings.Settings
 
 fun generateShipActions(

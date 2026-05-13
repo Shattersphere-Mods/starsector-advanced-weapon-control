@@ -1,9 +1,9 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.CustomListModalMode
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.typesandvalues.CustomWeaponTagListStore
-import com.dp.advancedgunnerycontrol.utils.ShipEditorPersistenceContext
+import com.dp.advancedgunnerycontrol.customlists.CustomWeaponTagListStore
+import com.dp.advancedgunnerycontrol.gui.session.CustomListModalMode
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
+import com.dp.advancedgunnerycontrol.shipdata.ShipEditorPersistenceContext
 
 class OpenCustomTagManagerAction(attributes: GUIAttributes) : GUIAction(attributes) {
     override fun execute() {

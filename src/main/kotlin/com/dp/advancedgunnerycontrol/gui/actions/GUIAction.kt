@@ -1,8 +1,9 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.AGCGUI
-import com.dp.advancedgunnerycontrol.gui.CampaignConfirmationTone
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
+
+import com.dp.advancedgunnerycontrol.gui.entrypoints.AGCGUI
+import com.dp.advancedgunnerycontrol.gui.modals.CampaignConfirmationTone
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
 import com.dp.advancedgunnerycontrol.settings.Settings
 import com.fs.starfarer.api.Global
 import com.fs.starfarer.api.fleet.FleetMemberAPI

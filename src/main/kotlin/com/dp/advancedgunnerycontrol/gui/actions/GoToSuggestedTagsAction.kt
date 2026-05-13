@@ -1,8 +1,9 @@
 package com.dp.advancedgunnerycontrol.gui.actions
 
-import com.dp.advancedgunnerycontrol.gui.GUIAttributes
-import com.dp.advancedgunnerycontrol.gui.GUIShower
-import com.dp.advancedgunnerycontrol.gui.suggesttaggui.SuggestedTagGui
+
+import com.dp.advancedgunnerycontrol.gui.session.GUIAttributes
+import com.dp.advancedgunnerycontrol.gui.entrypoints.GUIShower
+import com.dp.advancedgunnerycontrol.gui.suggestedtags.SuggestedTagGui
 import com.fs.starfarer.api.Global
 
 class GoToSuggestedTagsAction(attributes: GUIAttributes) : GUIAction(attributes) {
