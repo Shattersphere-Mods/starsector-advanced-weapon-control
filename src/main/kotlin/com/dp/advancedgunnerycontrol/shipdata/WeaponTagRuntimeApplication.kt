@@ -64,7 +64,7 @@ fun reloadShips(storageIndex: Int, ships: List<ShipAPI?>?) {
     ships?.filter { it?.owner == 0 }?.filterNotNull().let { relevantShips ->
         relevantShips?.forEach { ship ->
             if(Settings.autoApplySuggestedTags){
-                ship.fleetMember?.let { applySuggestedWeaponTags(it, storageIndex, false) }
+                ship.fleetMember?.let { applySuggestedWeaponTags(it, storageIndex, false, agcStableShipId(ship)) }
             }
             for (groupIndex in 0 until ship.weaponGroupsCopy.size) {
                 val tags = loadTags(ship, groupIndex, storageIndex)
